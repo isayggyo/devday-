@@ -9,7 +9,7 @@ import type { Visual } from '../lib/visual';
 export type Citation = { sourceType: 'transcript' | 'material'; sourceId: string; revision: number; pageNumber: number | null; excerpt: string };
 export type Answer = { id: string; questionId: string; answer: string; citations: Citation[]; groundingStatus: 'grounded' | 'insufficient_context'; needsVisual: boolean };
 export type Question = { id: string; sessionId: string; clientQuestionId: string; questionText: string; contextSnapshotId: string; status: string; errorCode: string | null; answer: Answer | null; visual: Visual | null; reactions?: Record<string, boolean> };
-type Block = { id: string; text: string; sourceType: string; sourceRef: { startMs?: number; endMs?: number; pageNumber?: number; imageRef?: string; filename?: string }; isPrimaryEvidence: boolean };
+type Block = { id: string; text: string; sourceType: string; sourceRef: { startMs?: number; endMs?: number; pageNumber?: number; imageRef?: string; filename?: string; origin?: string; inputFilename?: string }; isPrimaryEvidence: boolean };
 
 export function Evidence({ sessionId, question }: { sessionId: string; question: Question }) {
   const [blocks, setBlocks] = useState<Block[]>([]); const [error, setError] = useState('');
@@ -22,7 +22,7 @@ export function Evidence({ sessionId, question }: { sessionId: string; question:
     {question.answer?.citations.map((ref, index) => {
       const block = blocks.find(item => item.id === ref.sourceId && item.isPrimaryEvidence);
       return <blockquote key={index} data-testid="answer-citation" data-source-id={ref.sourceId}>
-        <p>{ref.excerpt}</p><p>{ref.sourceType === 'material' ? `자료 ${ref.pageNumber}페이지` : `전사 ${Math.floor((block?.sourceRef.startMs ?? 0)/1000)}초`} · 버전 {ref.revision}</p>
+        <p>{ref.excerpt}</p><p>{ref.sourceType === 'material' ? `자료 ${ref.pageNumber}페이지` : `${block?.sourceRef.origin === 'recording_json' ? `JSON 전사 (${block.sourceRef.inputFilename})` : '전사'} ${Math.floor((block?.sourceRef.startMs ?? 0)/1000)}초`} · 버전 {ref.revision}</p>
         {block?.sourceRef.imageRef && <a href={'/api' + block.sourceRef.imageRef} target="_blank" rel="noreferrer">해당 자료 페이지 보기</a>}
       </blockquote>;
     })}

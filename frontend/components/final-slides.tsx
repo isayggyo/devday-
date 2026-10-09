@@ -6,7 +6,7 @@ import type { LectureSession } from './session-manager';
 
 type Evidence = { evidenceId: string; questionText: string; isPreviousLecture: boolean; lectureTitle: string; sessionId: string };
 type FinalResult = { status: string; sessionStatus?: string; slides: FinalSlide[]; errorCode?: string; challengeStatus?: string; challengeError?: string;
-  evidenceBundle?: { questions: Evidence[] }; sourceIndex?: { sourceId: string; sessionId: string; revision: number; filename?: string; documentId?: string; pageNumber?: number; startMs?: number }[] };
+  evidenceBundle?: { questions: Evidence[] }; sourceIndex?: { sourceId: string; sessionId: string; revision: number; filename?: string; inputFilename?: string; origin?: string; documentId?: string; pageNumber?: number; startMs?: number }[] };
 
 export function FinalSlides({ session, onStatus }: { session: LectureSession; onStatus: (id: string, status: string) => void }) {
   const [result, setResult] = useState<FinalResult>({ status: 'not_started', slides: [] }), [error, setError] = useState(''), [busy, setBusy] = useState(false), [solutions, setSolutions] = useState(false);
@@ -48,7 +48,8 @@ export function FinalSlides({ session, onStatus }: { session: LectureSession; on
       })}</details>}
       <details><summary>강의·자료 출처</summary>{slide.sourceRefs.map((ref, index) => {
         const source = result.sourceIndex?.find(item => item.sourceId === ref.sourceId && item.revision === ref.revision);
-        return <blockquote key={index} data-testid="slide-source"><p>{source?.filename ? `${source.filename} · ${ref.pageNumber}페이지` : `전사 ${Math.floor((source?.startMs ?? 0)/1000)}초`} · 버전 {ref.revision}</p><p>{ref.excerpt}</p>
+        return <blockquote key={index} data-testid="slide-source"><p>{source?.filename ? `${source.filename} · ${ref.pageNumber}페이지` : `${source?.origin === 'recording_json' ? `JSON 전사 (${source.inputFilename})` : '전사'} ${Math.floor((source?.startMs ?? 0)/1000)}초`} · 버전 {ref.revision}</p><p>{ref.excerpt}</p>
+          {source?.origin === 'recording_json' && <a href={`/api/sessions/${source.sessionId}/recording-json/original`} target="_blank" rel="noreferrer">전사 JSON 원본</a>}
           {source?.documentId && <a href={`/api/sessions/${source.sessionId}/materials/${source.documentId}/pages/${ref.pageNumber}/image`} target="_blank" rel="noreferrer">원본 자료 페이지</a>}
         </blockquote>;
       })}</details>

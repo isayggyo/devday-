@@ -32,6 +32,8 @@ def chunk_view(chunk):
 @router.post("/recording/start")
 def start_recording(session_id: UUID, request: StartCapture, user: str = Depends(current_user), db: Session = Depends(database_session)):
     session = owned_session(db, session_id, user, lock=True)
+    if session.recording_input:
+        raise HTTPException(409, {'code': 'IMPORTED_TRANSCRIPT_SESSION', 'message': '이 강의는 파일 전사를 사용합니다. 새 녹음은 다른 강의에서 시작해 주세요.'})
     if session.status == "recording" and session.capture_id == request.captureId:
         return SessionView.model_validate(session).model_dump(by_alias=True, mode="json")
     if session.status not in {"created", "preparing"}:

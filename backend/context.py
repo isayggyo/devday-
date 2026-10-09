@@ -41,7 +41,7 @@ class WindowContextProvider:
 def freeze_context(db, session_id, user, question_id, selected_page_ids=()):
     # The session row lock serializes question registration against transcript commits
     # and material processing. All evidence text is copied inside this transaction.
-    owned_session(db, session_id, user, lock=True)
+    lecture = owned_session(db, session_id, user, lock=True)
     now = datetime.now(timezone.utc)
     transcripts = db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id,
         TranscriptSegment.committed_at <= now).order_by(TranscriptSegment.sequence)).all()
@@ -53,6 +53,9 @@ def freeze_context(db, session_id, user, question_id, selected_page_ids=()):
     for row in recent:
         ref = {'sourceType': 'transcript', 'sourceId': str(row.id), 'revision': row.revision, 'pageNumber': None,
                'startMs': row.start_ms, 'endMs': row.end_ms, 'sequence': row.sequence, 'committedAt': row.committed_at.isoformat()}
+        if lecture.recording_input:
+            ref |= {'origin': 'recording_json', 'inputFilename': lecture.recording_input['filename'], 'lectureId': lecture.recording_input['lectureId'],
+                'slideTimeline': [item for item in lecture.recording_input['timeline'] if item['startMs'] < row.end_ms and item['endMs'] > row.start_ms]}
         blocks.append({'id': str(row.id), 'sourceType': 'transcript', 'text': row.text, 'sourceRef': ref, 'isPrimaryEvidence': True})
     revisions = {}; diagnostics = []
     for page_id in dict.fromkeys(selected_page_ids):

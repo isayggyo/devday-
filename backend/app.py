@@ -28,6 +28,7 @@ from backend.questions import router as questions_router
 from backend.visuals import router as visuals_router
 from backend.evidence import router as evidence_router
 from backend.final_slides import router as final_router
+from backend.recording_input import router as input_router
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -41,6 +42,7 @@ app.include_router(questions_router)
 app.include_router(visuals_router)
 app.include_router(evidence_router)
 app.include_router(final_router)
+app.include_router(input_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,

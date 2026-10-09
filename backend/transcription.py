@@ -24,15 +24,16 @@ from .realtime_provider import transcription_connection, ProviderError
 router = APIRouter(prefix="/sessions/{session_id}", tags=["transcription"])
 
 
-def segment_view(row):
+def segment_view(row, recording_input=None):
     return {"id": str(row.id), "sessionId": str(row.session_id), "sequence": row.sequence, "startMs": row.start_ms, "endMs": row.end_ms,
-        "text": row.text, "revision": row.revision, "committedAt": row.committed_at.astimezone(timezone.utc).isoformat(), "status": "final"}
+        "text": row.text, "revision": row.revision, "committedAt": row.committed_at.astimezone(timezone.utc).isoformat(), "status": "final",
+        "origin": 'recording_json' if recording_input else 'realtime', "inputFilename": recording_input['filename'] if recording_input else None}
 
 
 @router.get("/transcript-segments")
 def list_segments(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
-    owned_session(db, session_id, user)
-    return [segment_view(row) for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)).all()]
+    session = owned_session(db, session_id, user)
+    return [segment_view(row, session.recording_input) for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)).all()]
 
 
 @router.post("/transcription-token")

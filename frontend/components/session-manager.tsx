@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { readJson } from '../lib/api';
 
+export type RecordingJson = { id: string; filename: string; lectureId: string; durationMs: number; segmentCount: number; timeline: { slide: number; title: string; startMs: number; endMs: number }[]; questionExamples: { timestampMs: number; text: string }[]; timelineFilename?: string };
 export type LectureSession = {
   id: string; title: string; status: string; userId: string; courseKey?: string | null;
-  createdAt: string; startedAt: string | null; endedAt: string | null;
+  createdAt: string; startedAt: string | null; endedAt: string | null; recordingInput?: RecordingJson | null;
 };
 
 const labels: Record<string, string> = { created: '생성됨', preparing: '준비 중', recording: '녹음 중', finalizing: '녹음 마무리', processing: '학습 자료 생성 중', completed: '완료', failed: '실패' };

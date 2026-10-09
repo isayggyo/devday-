@@ -13,7 +13,7 @@ async function proxy(request: Request, context: Context) {
     const upstream = await fetch(base + '/sessions' + (path.length ? '/' + path.join('/') : '') + new URL(request.url).search, {
       method: request.method, headers, cache: 'no-store',
       body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer(),
-      signal: AbortSignal.timeout(request.method === 'DELETE' ? 60000 : path.includes('pdf') ? 70000 : path.includes('materials') && request.method === 'POST' ? 180000 : 15000),
+      signal: AbortSignal.timeout(request.method === 'DELETE' || (path.includes('recording-json') && request.method === 'POST') ? 60000 : path.includes('pdf') ? 70000 : path.includes('materials') && request.method === 'POST' ? 180000 : 15000),
     });
     return new Response(upstream.body, { status: upstream.status, headers: { 'Content-Type': upstream.headers.get('Content-Type') ?? 'application/json' } });
   } catch {

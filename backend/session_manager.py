@@ -46,6 +46,7 @@ class SessionView(BaseModel):
     started_at: datetime | None = Field(serialization_alias="startedAt")
     ended_at: datetime | None = Field(serialization_alias="endedAt")
     course_key: str | None = Field(default=None, serialization_alias='courseKey')
+    recording_input: dict | None = Field(default=None, serialization_alias='recordingInput')
 
     @field_serializer("created_at", "started_at", "ended_at")
     def utc_time(self, value):

@@ -22,6 +22,7 @@ class LectureSession(Base):
     capture_id: Mapped[UUID | None] = mapped_column()
     course_key: Mapped[str | None] = mapped_column(String(100), index=True)
     final_result: Mapped[dict | None] = mapped_column(JSONB)
+    recording_input: Mapped[dict | None] = mapped_column(JSONB)
 
 
 class MaterialDocument(Base):

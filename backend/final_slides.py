@@ -19,6 +19,20 @@ from .visuals import VisualOutput, pool
 
 router = APIRouter(prefix='/sessions/{session_id}', tags=['final-slides'])
 
+CITATION_INSTRUCTIONS = (
+    ' For sourceRefs, the top-level sources array is the ONLY citation catalog. '
+    'Copy sourceType, sourceId, revision and pageNumber exactly from ONE catalog entry; '
+    'copy excerpt verbatim from that SAME entry text (at least 3 characters). '
+    'Do not reuse IDs from EvidenceBundle.citations, sourceIds or liveNotes unless they '
+    'also appear in sources. Do not rewrite spoken mathematics as formulas inside excerpts '
+    'or combine excerpts across segments. Original question IDs belong in evidenceRefs only. '
+    'Layout requirements: text_explanation needs nonempty paragraphs; equation needs '
+    'nonempty equations; comparison needs at least two headings and nonempty rows with '
+    'exactly as many values as headings; flowchart/concept_diagram need at least two '
+    'distinct node IDs and nonempty edges connecting those IDs without self loops. '
+    'Use empty arrays for unused elements.'
+)
+
 
 class SlideOutput(VisualOutput):
     body: str = Field(min_length=1, max_length=2400)
@@ -133,7 +147,7 @@ def synthesis_job(session_id, user, factory=None, generator=None, challenge_only
             title = session.title
         if not challenge_only:
             deck = generator(DeckOutput,
-                'Build a short final lecture slide deck, retaining the CURRENT lecture core and its teaching sequence. Each slide reuses visual elements: unused arrays must be empty. Use text_explanation when a diagram adds no value. Personalize explanation depth/order/visuals for actual student questions and reactions. Explain confusing concepts, connect only relevant previous-course questions, and never infer a learner profile. Primary lecture sources support factual claims; AI answers/notes are secondary context. Personalized slides must include the ORIGINAL question evidenceId in evidenceRefs. With no questions, create a normal lecture deck. Every slide requires exact sourceRefs. At least one slide must cite CURRENT lecture sources. Do not include a practice problem yet.',
+                'Build a short final lecture slide deck, retaining the CURRENT lecture core and its teaching sequence. Each slide reuses visual elements: unused arrays must be empty. Use text_explanation when a diagram adds no value. Personalize explanation depth/order/visuals for actual student questions and reactions. Explain confusing concepts, connect only relevant previous-course questions, and never infer a learner profile. Primary lecture sources support factual claims; AI answers/notes are secondary context. Personalized slides must include the ORIGINAL question evidenceId in evidenceRefs. With no questions, create a normal lecture deck. Every slide requires exact sourceRefs. At least one slide must cite CURRENT lecture sources. Do not include a practice problem yet.' + CITATION_INSTRUCTIONS,
                 {'lectureTitle': title, 'sessionId': str(session_id), 'sources': sources, 'EvidenceBundle': evidence}, max_output_tokens=7500, timeout=90)
             slides = [validated_slide(slide, sources, evidence) | {'kind': 'lecture'} for slide in deck.slides]
             current_ids = {source['sourceId'] for source in sources if source.get('sessionId') == str(session_id)}
@@ -150,7 +164,7 @@ def synthesis_job(session_id, user, factory=None, generator=None, challenge_only
             concepts = state['coreConcepts']
         # Exactly one separate Responses call per challenge attempt, after the deck is persisted.
         challenge = generator(ChallengeOutput,
-            'Create ONE application challenge in a NEW concrete situation, using the current core concepts and the actual student questions/reactions. Connect previous-course concepts only when relevant; otherwise rely on the current lecture. With no questions create a general application challenge. Avoid repetitive arithmetic drills. body is the QUESTION only: do NOT leak hints or the answer in body/elements/title. hints, answer and solution are separate. The solution must explain concept connections and distinguish the invented problem situation from lecture facts. Use the existing visual elements, or text_explanation paragraphs restating only the question. Exact sourceRefs establish the underlying concepts; evidenceRefs refer to original student question IDs. If simple numeric arithmetic is involved, supply calculationChecks using only numeric +,-,*,/,** and parentheses (no variables/functions); no unsupported claim of verified mathematics.',
+            'Create ONE application challenge in a NEW concrete situation, using the current core concepts and the actual student questions/reactions. Connect previous-course concepts only when relevant; otherwise rely on the current lecture. With no questions create a general application challenge. Avoid repetitive arithmetic drills. body is the QUESTION only: do NOT leak hints or the answer in body/elements/title. hints, answer and solution are separate. The solution must explain concept connections and distinguish the invented problem situation from lecture facts. Use the existing visual elements, or text_explanation paragraphs restating only the question. Exact sourceRefs establish the underlying concepts; evidenceRefs refer to original student question IDs. If simple numeric arithmetic is involved, supply calculationChecks using only numeric +,-,*,/,** and parentheses (no variables/functions); no unsupported claim of verified mathematics.' + CITATION_INSTRUCTIONS,
             {'lectureTitle': title, 'coreConcepts': concepts, 'EvidenceBundle': evidence,
              'sources': sources, 'finalSlideSummary': [{'title': slide['title'], 'body': slide['body']} for slide in base_slides]}, max_output_tokens=5500, timeout=90)
         slide = validated_slide(challenge, sources, evidence) | {'kind': 'challenge', 'mathVerification': verify_calculations(challenge.calculationChecks)}
@@ -186,7 +200,7 @@ def finish(session_id: UUID, user: str = Depends(current_user), db: Session = De
     state = session.final_result or {}
     if state.get('status') in {'ready', 'empty'}: return final_view(session)
     if state.get('status') in {'generating', 'generating_challenge', 'queued'} and datetime.fromisoformat(state['updatedAt']) > datetime.now(timezone.utc)-timedelta(seconds=180): return final_view(session)
-    if session.status not in {'finalizing', 'processing', 'failed', 'completed'}: raise HTTPException(409, {'code': 'STOP_RECORDING_FIRST', 'message': '먼저 녹음을 중지해 원본 저장과 전사 확정을 마쳐 주세요.'})
+    if session.status not in {'finalizing', 'processing', 'failed', 'completed'} and not (session.status == 'preparing' and session.recording_input): raise HTTPException(409, {'code': 'STOP_RECORDING_FIRST', 'message': '먼저 녹음을 중지해 원본 저장과 전사 확정을 마쳐 주세요.'})
     if db.scalar(select(TranscriptionTurn.id).where(TranscriptionTurn.session_id == session_id, TranscriptionTurn.status == 'pending').limit(1)):
         raise HTTPException(409, {'code': 'TRANSCRIPTION_PENDING', 'message': '마지막 전사가 확정될 때까지 기다려 주세요.'})
     chunks = db.scalars(select(AudioChunk).where(AudioChunk.session_id == session_id).order_by(AudioChunk.sequence)).all()

@@ -52,6 +52,7 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
   }, [session?.id, onSession]);
 
   useEffect(() => { if (controller.current && session) controller.current.session = session; }, [session]);
+  useEffect(() => { if (session?.recordingInput) void transcription.current?.load().catch(error => setNotice(microphoneMessage(error))); }, [session?.recordingInput?.id]);
 
   useEffect(()=>{if(autoStart&&session&&controller.current&&!autoStarted.current){autoStarted.current=true;void controller.current.start('').catch(error=>setNotice(microphoneMessage(error)));}},[autoStart,session?.id]);
 
@@ -74,9 +75,11 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
     if (!session) return;
     setEnding(true); setNotice('');
     try {
-      await controller.current?.stop();
-      await controller.current?.retry();
-      await controller.current?.report();
+      if (!session.recordingInput) {
+        await controller.current?.stop();
+        await controller.current?.retry();
+        await controller.current?.report();
+      }
       // The controller reports pending count through durable storage; check it directly
       // after its final chunk and upload queue have settled.
       const { chunksFor } = await import('../lib/audio-backup');
@@ -100,7 +103,7 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
     <label>입력 장치 <select aria-label="입력 장치" value={deviceId} disabled={active} onChange={event => setDeviceId(event.target.value)}><option value="">기본 마이크</option>{devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `마이크 ${index + 1}`}</option>)}</select></label>
     <label><input data-testid="transcription-enabled" type="checkbox" checked={transcribe} disabled={active} onChange={event => { enabled.current = event.target.checked; setTranscribe(event.target.checked); }} />실시간 전사 사용</label>
     <div>
-      <button data-testid="recording-start" disabled={!session || active || !['created', 'preparing'].includes(session.status)} onClick={() => { setNotice(''); void controller.current?.start(deviceId).catch(error => setNotice(microphoneMessage(error))); }}>녹음 시작</button>
+      <button data-testid="recording-start" disabled={!session || !!session.recordingInput || active || !['created', 'preparing'].includes(session.status)} onClick={() => { setNotice(''); void controller.current?.start(deviceId).catch(error => setNotice(microphoneMessage(error))); }}>녹음 시작</button>
       <button data-testid="recording-stop" disabled={!session || capture.state === 'stopping' || !['recording', 'interrupted'].includes(capture.state)} onClick={() => { void controller.current?.stop().catch(error => setNotice(microphoneMessage(error))); }}>녹음 중지</button>
       <button data-testid="audio-retry" disabled={!capture.pending || capture.state === 'requesting'} onClick={() => void controller.current?.retry()}>미전송 청크 재전송</button>
       <button disabled={!capture.bytes} onClick={() => { void controller.current?.download().catch(error => setNotice(microphoneMessage(error))); }}>로컬 원본 내려받기</button>
@@ -109,8 +112,8 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
     <p data-testid="audio-backup" data-pending={capture.pending} data-bytes={capture.bytes}>로컬 음성 {capture.bytes.toLocaleString()}바이트 · 전송 대기 {capture.pending}개</p>
     {(notice || capture.message) && <p role="status">{notice || capture.message}</p>}
     {session?.status === 'finalizing' && <p>녹음이 중지됐습니다. 강의를 종료하면 학습 슬라이드를 생성합니다.</p>}
-    <button data-testid="session-end" disabled={ending || !session || !['recording', 'finalizing'].includes(session.status) || capture.state === 'stopping'} onClick={() => void endLecture()}>{ending ? '원본 저장·전사 확정 중…' : '강의 종료·학습 슬라이드 생성'}</button>
-  </section><section aria-label="실시간 전사"><h2>자막</h2>
+    <button data-testid="session-end" disabled={ending || !session || (!['recording', 'finalizing'].includes(session.status) && !(session.status === 'preparing' && session.recordingInput)) || capture.state === 'stopping'} onClick={() => void endLecture()}>{ending ? '원본 저장·전사 확정 중…' : '강의 종료·학습 슬라이드 생성'}</button>
+  </section><section aria-label="실시간 전사"><h2>자막</h2>{session?.recordingInput&&<p>업로드 전사 · {session.recordingInput.filename} (실시간 STT 아님)</p>}
     <p data-testid="transcription-status" data-status={captions.status}>{captions.status === 'connected' ? '전사 연결됨' : captions.status === 'connecting' ? '전사 연결 중' : captions.status === 'reconnecting' ? '전사 재연결 중 · 원본 녹음 유지' : captions.status === 'finalized' ? '전사 확정 완료' : captions.status === 'error' ? '전사 연결 실패 · 원본 녹음 유지' : '확정 자막을 기다리고 있습니다.'}</p>
     {captions.message && <p role="status">{captions.message}</p>}
     {active && <button data-testid="transcription-retry" onClick={() => transcription.current?.retry()}>전사 다시 연결</button>}

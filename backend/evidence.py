@@ -14,9 +14,12 @@ router = APIRouter(tags=['learning-evidence'])
 
 def lecture_sources(db, session_id):
     sources = []
+    lecture = db.get(LectureSession, session_id)
+    input_info = lecture.recording_input if lecture else None
     for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)):
         sources.append({'sourceType': 'transcript', 'sourceId': str(row.id), 'sessionId': str(session_id), 'revision': row.revision,
-            'pageNumber': None, 'text': row.text, 'startMs': row.start_ms, 'endMs': row.end_ms})
+            'pageNumber': None, 'text': row.text, 'startMs': row.start_ms, 'endMs': row.end_ms,
+            'origin': 'recording_json' if input_info else 'realtime', 'inputFilename': input_info['filename'] if input_info else None})
     for page, doc in db.execute(select(MaterialPage, MaterialDocument).join(MaterialDocument).where(MaterialDocument.session_id == session_id,
             MaterialDocument.processing_status.in_(['ready', 'needs_analysis'])).order_by(MaterialDocument.id, MaterialPage.page_number)):
         if page.text.strip(): sources.append({'sourceType': 'material', 'sourceId': str(page.id), 'sessionId': str(session_id),

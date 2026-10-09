@@ -35,6 +35,18 @@ PDF는 같은 React 시각 렌더러와 Chrome for Testing을 사용하며 힌�
 파일 저장소 삭제 실패는 오류로 표시하고 DB 세션을 유지해 재시도할 수 있습니다.
 로그는 `artifacts/dev`, `artifacts/infra`에 저장됩니다.
 
+홈의 파일 업로드에서 전사 JSON도 선택할 수 있습니다. 상세 설정의 `녹음 전사 JSON`에서
+개별 `Lecture_01_transcript.json` 또는 합본 `combined_demo_transcripts.json`을 가져옵니다.
+합본은 강의를 하나 선택합니다. 같은 강의의 `*_slide_timeline.json`을 함께 선택하거나
+가져온 뒤 별도로 연결할 수 있습니다. 전사는 초 단위 start/end를 밀리초로 변환해 저장하며,
+UI와 질문/슬라이드 근거에 업로드 JSON 출처를 표시합니다. JSON의 질문 예시는 입력창에만
+가져오고 제출 전에는 StudentQuestion/Evidence로 저장하지 않습니다.
+JSON 강의는 실제 마이크 없이 질문·요약·종료 후 최종 슬라이드/PDF를 사용할 수 있습니다.
+다른 전사 파일이나 새 마이크 녹음은 별도 강의에서 시작합니다. 원본 JSON은 S3에 보관하며
+세션 삭제 시 함께 정리합니다. 별도 가짜 자막/생성 결과를 주입하지 않습니다.
+
+호스팅 선택과 실제 배포 전 준비는 [배포 방안](deployment-options.md)을 참고하세요.
+
 ```powershell
 python scripts/dev.py stop
 python scripts/local_storage.py stop
