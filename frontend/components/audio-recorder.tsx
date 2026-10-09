@@ -5,7 +5,7 @@ import { AudioController, microphoneMessage, type CaptureUpdate } from '../lib/a
 import type { LectureSession } from './session-manager';
 import { TranscriptionController, type TranscriptionUpdate } from '../lib/transcription';
 
-export function AudioRecorder({ session, onSession, onCaptureActive, autoStart = false }: { autoStart?: boolean; onCaptureActive?: (active: boolean) => void; session: LectureSession | null; onSession: (session: LectureSession) => void }) {
+export function AudioRecorder({ session, onSession, onCaptureActive, autoStart = false, stopSignal = 0, onCaptureUpdate, onNotice }: { onNotice?: (message:string) => void; stopSignal?: number; onCaptureUpdate?: (value: CaptureUpdate) => void; autoStart?: boolean; onCaptureActive?: (active: boolean) => void; session: LectureSession | null; onSession: (session: LectureSession) => void }) {
   const controller = useRef<AudioController | null>(null);
   const transcription = useRef<TranscriptionController | null>(null);
   const enabled = useRef(true);
@@ -63,6 +63,9 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
     finally { preview?.getTracks().forEach(track => track.stop()); }
   }
 
+  useEffect(()=>{if(notice)onNotice?.(notice);},[notice,onNotice]);
+  useEffect(()=>{onCaptureUpdate?.(capture);},[capture,onCaptureUpdate]);
+  useEffect(()=>{if(stopSignal)void controller.current?.stop().catch(error=>setNotice(microphoneMessage(error)));},[stopSignal]);
   const active = ['recording', 'requesting', 'stopping'].includes(capture.state);
   useEffect(() => { onCaptureActive?.(active); }, [active, onCaptureActive]);
   return <><section aria-label="녹음">

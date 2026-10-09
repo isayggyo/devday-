@@ -30,9 +30,10 @@ export function Evidence({ sessionId, question }: { sessionId: string; question:
   </details>;
 }
 
-export function Questions({ sessionId }: { sessionId: string }) {
+export function Questions({ sessionId, initialPrompt }: { sessionId: string; initialPrompt?: {text:string;nonce:number} }) {
   const [questions, setQuestions] = useState<Question[]>([]), [documents, setDocuments] = useState<MaterialDocument[]>([]);
   const [text, setText] = useState(''), [selected, setSelected] = useState<string[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(()=>{if(initialPrompt)setText(initialPrompt.text);},[initialPrompt]);
   const pending = useRef<{ clientQuestionId: string; questionText: string; selectedPageIds: string[] } | null>(null);
   const base = `/api/sessions/${sessionId}/questions`;
   useEffect(() => {

@@ -8,7 +8,7 @@ export type MaterialPage = { id: string; documentId: string; pageNumber: number;
 export type MaterialDocument = { id: string; sessionId: string; filename: string; fileType: string; revision: number; processingStatus: string; errorCode: string | null; originalUrl: string; sha256: string; pages: MaterialPage[] };
 const localUrl = (url: string) => '/api' + url;
 
-export function Materials({ session, onPrepared }: { session: LectureSession | null; onPrepared: (sessionId: string) => void }) {
+export function Materials({ session, onPrepared, initialFile }: { initialFile?: File | null; session: LectureSession | null; onPrepared: (sessionId: string) => void }) {
   const [documents, setDocuments] = useState<MaterialDocument[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -17,7 +17,7 @@ export function Materials({ session, onPrepared }: { session: LectureSession | n
   const base = session ? '/api/sessions/' + session.id + '/materials' : '';
   useEffect(() => {
     let active = true;
-    setDocuments([]); setFile(null); setError(''); setPageNumbers({});
+    setDocuments([]); setFile(initialFile??null); setError(''); setPageNumbers({});
     if (base) void fetch(base).then(readJson<MaterialDocument[]>).then(items => { if (active) setDocuments(items); }).catch(failure => { if (active) setError(failure.message); });
     return () => { active = false; };
   }, [base]);
