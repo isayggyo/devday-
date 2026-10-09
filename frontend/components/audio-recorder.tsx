@@ -5,10 +5,11 @@ import { AudioController, microphoneMessage, type CaptureUpdate } from '../lib/a
 import type { LectureSession } from './session-manager';
 import { TranscriptionController, type TranscriptionUpdate } from '../lib/transcription';
 
-export function AudioRecorder({ session, onSession }: { session: LectureSession | null; onSession: (session: LectureSession) => void }) {
+export function AudioRecorder({ session, onSession, onCaptureActive, autoStart = false }: { autoStart?: boolean; onCaptureActive?: (active: boolean) => void; session: LectureSession | null; onSession: (session: LectureSession) => void }) {
   const controller = useRef<AudioController | null>(null);
   const transcription = useRef<TranscriptionController | null>(null);
   const enabled = useRef(true);
+  const autoStarted=useRef(false);
   const [transcribe, setTranscribe] = useState(true);
   const [captions, setCaptions] = useState<TranscriptionUpdate>({ status: 'idle', message: '', partial: '', segments: [] });
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -50,6 +51,8 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
 
   useEffect(() => { if (controller.current && session) controller.current.session = session; }, [session]);
 
+  useEffect(()=>{if(autoStart&&session&&controller.current&&!autoStarted.current){autoStarted.current=true;void controller.current.start('').catch(error=>setNotice(microphoneMessage(error)));}},[autoStart,session?.id]);
+
   async function selectDevices() {
     setNotice('');
     let preview: MediaStream | null = null;
@@ -61,6 +64,7 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
   }
 
   const active = ['recording', 'requesting', 'stopping'].includes(capture.state);
+  useEffect(() => { onCaptureActive?.(active); }, [active, onCaptureActive]);
   return <><section aria-label="녹음">
     <h2>녹음</h2>
     <button disabled={!session || active} onClick={() => void selectDevices()}>마이크 권한 확인·장치 찾기</button>
