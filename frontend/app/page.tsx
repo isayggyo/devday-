@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BackendStatus } from '../components/backend-status';
 
 export default function Page() {
   const [session, setSession] = useState('');
@@ -10,6 +11,7 @@ export default function Page() {
 
   return <main data-testid="lecture-app">
     <h1>강의 워크스페이스</h1>
+    <BackendStatus />
     <p>웹앱 기능을 연결하기 위한 초기 화면입니다. 전사와 슬라이드는 아직 구현되지 않았습니다.</p>
     <p data-testid="session-state" data-session-id={session} data-state="idle">
       세션 상태: 대기

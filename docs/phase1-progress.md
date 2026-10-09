@@ -6,8 +6,8 @@
 | Step | 작업 | 상태 |
 | --- | --- | --- |
 | 0 | 저장소와 기존 하네스 점검 | 완료 |
-| 1 | 프로젝트 기반, PostgreSQL, 환경 설정, 프론트/백 통신 | 진행 중 |
-| 2 | 사용자별 영속 강의 세션 | 대기 |
+| 1 | 프로젝트 기반, PostgreSQL, 환경 설정, 프론트/백 통신 | 완료 |
+| 2 | 사용자별 영속 강의 세션 | 진행 중 |
 | 3 | PDF/PPT 자료 저장·페이지 분석·표시 | 대기 |
 | 4 | 녹음·IndexedDB 백업·업로드·재시도 | 대기 |
 | 5 | 실제 OpenAI 실시간 전사 | 대기 |
@@ -36,3 +36,14 @@
   적절한 단계에서 수정. 강의 중에는 Live Notes와 질문에 필요한 시각 설명만 생성.
 - 로컬 자격 증명 파일은 Git 제외 처리. 키 값은 프론트엔드나 기록에 노출하지 않음.
 - 다음: Step 1 실제 PostgreSQL 연결과 프론트/백 통신 검증.
+
+## Step 1 — 2026-10-09 12:36
+
+- 구현: Next.js TypeScript 전환, FastAPI 설정/표준 오류/요청 ID, 실제 PostgreSQL 17.11 연결, 프론트엔드 서버 프록시와 연결 표시.
+- 로컬 실행: `python scripts/local_postgres.py start`, `python scripts/dev.py start [--e2e]`, `python scripts/dev.py stop`.
+- Windows 한글 경로는 같은 프로젝트를 가리키는 임시 영문 junction으로 참조. DB 데이터와 비밀번호는 무시되는 프로젝트 infra/data 및 .env에 보관.
+- 검증: `python scripts/test_phase.py --step=1` — 백엔드 6개, 프론트엔드 2개, TypeScript 검사, 실제 Chrome 통신 모두 PASS.
+- 브라우저 결과: `artifacts/phase1/step1-1791516787398/result.json` 및 foundation.png.
+- 개발 서버 실제 시작/헬스체크/신원 확인 후 트리 종료 PASS. Windows detached 실행 실패를 숨김 창 실행으로 수정.
+- 한계: 개발용 인증만 제공. 운영 인증과 실제 AI 연동은 검증되지 않았으며 세션은 아직 메모리 저장.
+- 다음: Step 2 DB 마이그레이션, 영속 세션 및 사용자 격리.

@@ -13,4 +13,6 @@ artifacts/
 e2e/config.local.json
 api key.txt
 infra/data/
+.pytest_cache/
+*.tsbuildinfo
 

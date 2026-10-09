@@ -174,7 +174,7 @@ export async function services(options, journal, owned) {
     const python = process.env.E2E_PYTHON ?? path.join(ROOT, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
     check(fs.existsSync(python), 'Backend virtualenv is missing. Run python scripts/setup_e2e.py or set E2E_PYTHON.');
     const environment = { ...process.env, E2E_MODE: '1', FRONTEND_ORIGIN: options.frontendUrl, NEXT_PUBLIC_BACKEND_URL: options.backendUrl, NEXT_TELEMETRY_DISABLED: '1', PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' };
-    backend = startService('backend', python, ['-m', 'uvicorn', 'app:app', '--host', new URL(options.backendUrl).hostname.replace(/[\[\]]/g, ''), '--port', new URL(options.backendUrl).port || '80'], path.join(ROOT, 'backend'), environment, journal).child;
+    backend = startService('backend', python, ['-m', 'uvicorn', 'backend.app:app', '--host', new URL(options.backendUrl).hostname.replace(/[\[\]]/g, ''), '--port', new URL(options.backendUrl).port || '80'], ROOT, environment, journal).child;
     owned.push({ label: 'backend', child: backend });
     frontend = startService('frontend', process.execPath, [require.resolve('next/dist/bin/next'), 'dev', '--webpack', '--hostname', new URL(options.frontendUrl).hostname.replace(/[\[\]]/g, ''), '--port', new URL(options.frontendUrl).port || '80'], path.join(ROOT, 'frontend'), environment, journal).child;
     owned.push({ label: 'frontend', child: frontend });

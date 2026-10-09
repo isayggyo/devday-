@@ -7,12 +7,17 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from backend.config import get_settings
+from backend.db import ping_database
+from backend.errors import install_error_handlers
+
 app = FastAPI(title="Lecture app baseline")
+install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get("FRONTEND_ORIGIN", "http://127.0.0.1:3000")],
+    allow_origins=[get_settings().frontend_origin],
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization", "X-Dev-User-Id"],
 )
 
 # These flags describe product implementation, not the browser's media support.
@@ -32,7 +37,7 @@ class TestSession(BaseModel):
 
 
 def require_e2e():
-    if os.environ.get("E2E_MODE") != "1":
+    if not get_settings().e2e_mode:
         raise HTTPException(404, "E2E session controls are disabled")
 
 
@@ -48,7 +53,12 @@ def not_implemented(feature: str):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "lecture-backend", "e2e_enabled": os.environ.get("E2E_MODE") == "1"}
+    try:
+        ping_database()
+    except Exception:
+        raise HTTPException(503, {"code": "DATABASE_UNAVAILABLE", "message": "PostgreSQL is unavailable"})
+    settings = get_settings()
+    return {"status": "ok", "service": "lecture-backend", "database": "ok", "auth_mode": settings.auth_mode, "e2e_enabled": settings.e2e_mode}
 
 
 @app.get("/api/capabilities")
