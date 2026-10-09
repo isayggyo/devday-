@@ -97,3 +97,22 @@ def test_finish_progress_has_an_empty_slide_array_before_generation(environment,
     assert response.status_code == 202 and response.json()['status'] == 'queued'
     assert response.json()['slides'] == []
     assert client.get(f'/sessions/{session_id}/synthesis', headers={'X-Dev-User-Id': user}).json()['slides'] == []
+
+
+def test_finish_without_evidence_completes_without_generation(environment, monkeypatch):
+    from backend.tests.test_sessions import create
+    client, factory, user, _ = environment
+    session_id = UUID(create(client, user)['id'])
+    with factory() as db:
+        lecture = db.get(LectureSession, session_id); lecture.status = 'finalizing'; db.commit()
+    calls = []
+    monkeypatch.setattr(final_slides.pool, 'submit', lambda *args, **kwargs: calls.append(args))
+    response = client.post(f'/sessions/{session_id}/finish', headers={'X-Dev-User-Id': user})
+    assert response.status_code == 202
+    assert response.json()['status'] == 'empty'
+    assert response.json()['sessionStatus'] == 'completed'
+    assert response.json()['slides'] == []
+    assert calls == []
+    repeated = client.post(f'/sessions/{session_id}/finish', headers={'X-Dev-User-Id': user})
+    assert repeated.json()['status'] == 'empty'
+    assert client.get(f'/sessions/{session_id}/synthesis', headers={'X-Dev-User-Id': user}).json()['status'] == 'empty'
