@@ -18,7 +18,6 @@ export default function Page() {
     <SessionManager onSelect={selectSession} selected={session} />
     <Materials key={'materials-' + (session?.id ?? 'none')} session={session} onPrepared={prepared} />
     <AudioRecorder key={'audio-' + (session?.id ?? 'none')} session={session} onSession={selectSession} />
-    <section aria-label="실시간 전사"><h2>자막</h2><p>NOT_IMPLEMENTED · 수신한 전사가 없습니다.</p></section>
     <section aria-label="생성된 슬라이드"><h2>시각 슬라이드</h2><p>NOT_IMPLEMENTED · 생성된 슬라이드가 없습니다.</p></section>
   </main>;
 }

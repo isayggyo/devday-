@@ -9,7 +9,7 @@ from setup_e2e import project_npm
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--step", type=int, required=True, choices=[1, 3])
+    parser.add_argument("--step", type=int, required=True, choices=[1, 3, 5])
     step = parser.parse_args().step
     python = ROOT / ".venv/Scripts/python.exe"
     packages = [
@@ -18,6 +18,8 @@ def main():
     ]
     if step == 3:
         packages = ["PyMuPDF>=1.26,<2", "boto3>=1.40,<2", "python-multipart>=0.0.20,<1", "python-pptx>=1,<2", "olefile>=0.47,<1"]
+    if step == 5:
+        packages = ["websockets>=16,<17"]
     subprocess.run([str(python), "-m", "pip", "install", *packages, "--cache-dir", str(ROOT / ".tools/pip-cache")], cwd=ROOT, check=True)
     node = find_node()
     if step == 1:

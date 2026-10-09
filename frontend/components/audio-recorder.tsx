@@ -3,9 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioController, microphoneMessage, type CaptureUpdate } from '../lib/audio-controller';
 import type { LectureSession } from './session-manager';
+import { TranscriptionController, type TranscriptionUpdate } from '../lib/transcription';
 
 export function AudioRecorder({ session, onSession }: { session: LectureSession | null; onSession: (session: LectureSession) => void }) {
   const controller = useRef<AudioController | null>(null);
+  const transcription = useRef<TranscriptionController | null>(null);
+  const enabled = useRef(true);
+  const [transcribe, setTranscribe] = useState(true);
+  const [captions, setCaptions] = useState<TranscriptionUpdate>({ status: 'idle', message: '', partial: '', segments: [] });
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
   const [notice, setNotice] = useState('');
@@ -15,6 +20,13 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
     if (!session) return;
     const instance = new AudioController(session, setCapture, onSession);
     controller.current = instance;
+    const stt = new TranscriptionController(session.id, setCaptions);
+    transcription.current = stt;
+    void stt.load().catch(error => setNotice(microphoneMessage(error)));
+    instance.onStream = stream => {
+      if (stream && enabled.current) void stt.start(stream, instance.started).catch(error => setNotice(microphoneMessage(error)));
+      if (!stream && stt.context) return stt.finish();
+    };
     void instance.refresh().catch(error => setNotice(microphoneMessage(error)));
     const online = () => { void instance.retry(); };
     const visibility = () => {
@@ -49,10 +61,11 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
   }
 
   const active = ['recording', 'requesting', 'stopping'].includes(capture.state);
-  return <section aria-label="녹음">
+  return <><section aria-label="녹음">
     <h2>녹음</h2>
     <button disabled={!session || active} onClick={() => void selectDevices()}>마이크 권한 확인·장치 찾기</button>
     <label>입력 장치 <select aria-label="입력 장치" value={deviceId} disabled={active} onChange={event => setDeviceId(event.target.value)}><option value="">기본 마이크</option>{devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `마이크 ${index + 1}`}</option>)}</select></label>
+    <label><input data-testid="transcription-enabled" type="checkbox" checked={transcribe} disabled={active} onChange={event => { enabled.current = event.target.checked; setTranscribe(event.target.checked); }} />실시간 전사 사용</label>
     <div>
       <button data-testid="recording-start" disabled={!session || active || !['created', 'preparing'].includes(session.status)} onClick={() => { setNotice(''); void controller.current?.start(deviceId).catch(error => setNotice(microphoneMessage(error))); }}>녹음 시작</button>
       <button data-testid="recording-stop" disabled={!session || capture.state === 'stopping' || !['recording', 'interrupted'].includes(capture.state)} onClick={() => { void controller.current?.stop().catch(error => setNotice(microphoneMessage(error))); }}>녹음 중지</button>
@@ -64,5 +77,11 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
     {(notice || capture.message) && <p role="status">{notice || capture.message}</p>}
     {session?.status === 'finalizing' && <p>원본 녹음이 저장됐습니다. 전사 확정 및 강의 종료 기능은 다음 단계에서 연결합니다.</p>}
     <button data-testid="session-end" disabled>세션 종료 · NOT_IMPLEMENTED</button>
-  </section>;
+  </section><section aria-label="실시간 전사"><h2>자막</h2>
+    <p data-testid="transcription-status" data-status={captions.status}>{captions.status === 'connected' ? '전사 연결됨' : captions.status === 'connecting' ? '전사 연결 중' : captions.status === 'reconnecting' ? '전사 재연결 중 · 원본 녹음 유지' : captions.status === 'finalized' ? '전사 확정 완료' : captions.status === 'error' ? '전사 연결 실패 · 원본 녹음 유지' : '확정 자막을 기다리고 있습니다.'}</p>
+    {captions.message && <p role="status">{captions.message}</p>}
+    {active && <button data-testid="transcription-retry" onClick={() => transcription.current?.retry()}>전사 다시 연결</button>}
+    {captions.partial && <p data-testid="transcript-partial">{captions.partial} <small>부분 전사 · 아직 확정되지 않음</small></p>}
+    <ol>{captions.segments.map(segment => <li key={segment.id} data-testid="transcript-item" data-segment-id={segment.id}><time>{Math.floor(segment.startMs / 1000)}초</time> {segment.text}</li>)}</ol>
+  </section></>;
 }

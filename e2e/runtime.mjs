@@ -24,6 +24,9 @@ export class Journal {
     for (const name of ['events', 'browser-console', 'api-errors']) fs.writeFileSync(path.join(directory, name + '.jsonl'), '');
   }
   log(type, detail = {}, step = this.step) {
+    if (detail.url) {
+      try { const sanitized = new URL(detail.url); for (const key of ['token', 'ticket', 'api_key']) if (sanitized.searchParams.has(key)) sanitized.searchParams.set(key, '[REDACTED]'); detail = { ...detail, url: sanitized.href }; } catch {}
+    }
     const event = { timestamp: new Date().toISOString(), step, type, ...detail };
     fs.appendFileSync(path.join(this.directory, 'events.jsonl'), JSON.stringify(event) + '\n');
     if (['console', 'page_error', 'browser_crash'].includes(type)) fs.appendFileSync(path.join(this.directory, 'browser-console.jsonl'), JSON.stringify(event) + '\n');
@@ -81,7 +84,7 @@ export class Journal {
       if (!socket?.api || event.response.opcode !== 1) return;
       try {
         const payload = JSON.parse(event.response.payloadData);
-        if (payload.type === 'error' || payload.code === 'NOT_IMPLEMENTED' || payload.error) this.log('api_error', { url: socket.url, protocol: 'websocket', body: payload, fatal: true });
+        if (payload.type === 'error' || payload.type?.endsWith('.error') || payload.code === 'NOT_IMPLEMENTED' || payload.error) this.log('api_error', { url: socket.url, protocol: 'websocket', body: payload, fatal: true });
       } catch { /* Non-JSON frames are not application error messages. */ }
     });
     cdp.on('Network.webSocketClosed', event => {

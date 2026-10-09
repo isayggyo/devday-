@@ -61,3 +61,48 @@ class AudioChunk(Base):
     sha256: Mapped[str] = mapped_column(String(64))
     object_ref: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TranscriptionTicket(Base):
+    __tablename__ = "transcription_tickets"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(100))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed: Mapped[bool] = mapped_column(default=False)
+
+
+class TranscriptionConnection(Base):
+    __tablename__ = "transcription_connections"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="connecting")
+    provider_session_id: Mapped[str | None] = mapped_column(String(200))
+    error_code: Mapped[str | None] = mapped_column(String(80))
+
+
+class TranscriptionTurn(Base):
+    __tablename__ = "transcription_turns"
+    __table_args__ = (UniqueConstraint("session_id", "sequence", name="transcription_turn_sequence"), UniqueConstraint("connection_id", "provider_item_id", name="transcription_provider_item"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    connection_id: Mapped[UUID] = mapped_column(ForeignKey("transcription_connections.id", ondelete="CASCADE"))
+    sequence: Mapped[int] = mapped_column(Integer)
+    start_ms: Mapped[int] = mapped_column(Integer)
+    end_ms: Mapped[int] = mapped_column(Integer)
+    provider_item_id: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(80))
+
+
+class TranscriptSegment(Base):
+    __tablename__ = "transcript_segments"
+    __table_args__ = (UniqueConstraint("session_id", "sequence", name="transcript_segment_sequence"),)
+    id: Mapped[UUID] = mapped_column(ForeignKey("transcription_turns.id", ondelete="CASCADE"), primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    start_ms: Mapped[int] = mapped_column(Integer)
+    end_ms: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column()
+    revision: Mapped[int] = mapped_column(default=1)
+    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

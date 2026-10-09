@@ -34,7 +34,7 @@ export class AudioController {
   lastTick = Date.now();
   stopped: Promise<void> | null = null;
   unsaved: AudioChunk[] = [];
-  onStream: ((stream: MediaStream | null) => void) | null = null;
+  onStream: ((stream: MediaStream | null) => void | Promise<void>) | null = null;
   alive = true;
 
   constructor(session: LectureSession, update: (value: CaptureUpdate) => void, changed: (value: LectureSession) => void) {
@@ -144,7 +144,7 @@ export class AudioController {
       }
       await this.saveQueue;
       this.stream?.getTracks().forEach(track => track.stop());
-      this.stream = null; this.onStream?.(null);
+      this.stream = null; await this.onStream?.(null);
       await this.retry();
       try {
         const session = await readJson<LectureSession>(await fetch(this.base + '/recording/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ captureId: this.captureId || undefined }), signal: AbortSignal.timeout(10000) }));

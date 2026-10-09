@@ -43,6 +43,7 @@ try {
   await page.setExtraHTTPHeaders(headers);
   await page.goto(options.frontendUrl + '/?session=' + sessionId, { waitUntil: 'networkidle0' });
   await page.waitForFunction(id => document.querySelector('[data-testid="session-state"]')?.dataset.sessionId === id, {}, sessionId);
+  await page.click('[data-testid="transcription-enabled"]');
   await page.click('[data-testid="recording-start"]');
   await page.waitForFunction(() => document.body.innerText.includes('마이크 권한이 거부'));
   check((await fetch(options.backendUrl + '/sessions/' + sessionId, { headers }).then(response => response.json())).status === 'created', 'Denied microphone permission started a backend recording');
@@ -56,6 +57,7 @@ try {
   await page.setExtraHTTPHeaders(headers);
   await page.goto(options.frontendUrl + '/?session=' + sessionId, { waitUntil: 'networkidle0' });
   await page.waitForFunction(id => document.querySelector('[data-testid="session-state"]')?.dataset.sessionId === id, {}, sessionId);
+  await page.click('[data-testid="transcription-enabled"]');
   await page.click('[data-testid="recording-start"]');
   await page.waitForSelector('[data-testid="recording-state"][data-state="recording"]');
   await page.waitForFunction(() => Number(document.querySelector('[data-testid="audio-backup"]')?.dataset.bytes) > 0 && document.querySelector('[data-testid="audio-backup"]')?.dataset.pending === '0');

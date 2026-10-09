@@ -11,3 +11,4 @@ boto3>=1.40,<2
 python-multipart>=0.0.20,<1
 python-pptx>=1,<2
 olefile>=0.47,<1
+websockets>=16,<17

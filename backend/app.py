@@ -1,6 +1,7 @@
 """App shell and isolated test-session lifecycle; no fabricated AI output."""
 
 import os
+from backend import logging_filter
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Response, Depends, UploadFile, File
@@ -21,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy import func
 from backend.audio import router as audio_router, StartCapture, StopCapture, start_recording as start_capture, stop_recording as stop_capture
 from backend.models import AudioChunk
+from backend.transcription import router as transcription_router, list_segments
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -28,6 +30,7 @@ app = FastAPI(title="Lecture app baseline")
 app.include_router(session_router)
 app.include_router(material_router)
 app.include_router(audio_router)
+app.include_router(transcription_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +43,7 @@ app.add_middleware(
 CAPABILITIES = {
     "upload": True,
     "recording": True,
-    "transcription": False,
+    "transcription": True,
     "slides": False,
     "provenance": False,
     "session_end": False,
@@ -103,7 +106,7 @@ def get_session(item: LectureSession = Depends(session_by_id), db: Session = Dep
     documents = [document_view(db, document) for document in db.scalars(select(MaterialDocument).where(MaterialDocument.session_id == item.id)).all()]
     audio_bytes = db.scalar(select(func.coalesce(func.sum(AudioChunk.byte_length), 0)).where(AudioChunk.session_id == item.id))
     state = "idle" if item.status in {"created", "preparing"} else "stopped" if item.status == "finalizing" else "ended" if item.status == "completed" else item.status
-    return {"id": str(item.id), "run_id": item.test_run_id, "state": state, "documents": documents, "transcripts": [], "slides": [], "audio_bytes": audio_bytes}
+    return {"id": str(item.id), "run_id": item.test_run_id, "state": state, "documents": documents, "transcripts": list_segments(item.id, item.user_id, db), "slides": [], "audio_bytes": audio_bytes}
 
 
 @app.delete("/api/e2e/sessions/{session_id}", status_code=204)
@@ -128,8 +131,8 @@ def start_recording(session_id: UUID, request: StartCapture, user: str = Depends
 
 
 @app.get("/api/sessions/{session_id}/transcripts")
-def transcripts(item: LectureSession = Depends(session_by_id)):
-    not_implemented("transcription")
+def transcripts(item: LectureSession = Depends(session_by_id), db: Session = Depends(database_session)):
+    return list_segments(item.id, item.user_id, db)
 
 
 @app.get("/api/sessions/{session_id}/slides")

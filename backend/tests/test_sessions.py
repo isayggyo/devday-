@@ -104,5 +104,8 @@ def test_deployment_auth_never_uses_dev_identity(environment, monkeypatch):
 def test_versioned_migration_and_status_constraint(environment):
     _, factory, _, _ = environment
     with factory() as db:
-        assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0003_audio"
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from backend.config import ROOT
+        assert db.scalar(text("SELECT version_num FROM alembic_version")) == ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_current_head()
         assert db.scalar(text("SELECT count(*) FROM pg_constraint WHERE conname='session_status'")) == 1

@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     material_max_bytes: int = 30 * 1024 * 1024
     material_max_pages: int = 200
     libreoffice_path: str = str(ROOT / ".tools/libreoffice/program/soffice.com")
+    stt_model: str = "gpt-live-transcribe"
+    stt_delay: str = "low"
+    stt_commit_max_ms: int = 12000
 
     @model_validator(mode="after")
     def production_auth(self):

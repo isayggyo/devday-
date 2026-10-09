@@ -42,4 +42,5 @@ typing_extensions==4.16.0
 tzdata==2026.5
 urllib3==2.8.0
 uvicorn==0.34.2
+websockets==16.1.1
 xlsxwriter==3.2.9
