@@ -7,6 +7,19 @@
 - 로그 수집 시작: **2026-10-09 10:28:01 KST**
 - 작업 경과: [docs/work-log.md](docs/work-log.md)
 
+## 웹앱 스모크 E2E
+
+```powershell
+python scripts/setup_e2e.py
+python scripts/run_e2e.py --runs=3
+```
+
+Puppeteer + `~/.cache/gyeol-cft`의 Chrome for Testing으로 실행합니다.
+실제 마이크 대신 고정 강의 WAV와 테스트 PDF를 사용합니다.
+현재는 최소 Next.js/FastAPI 셸만 구현되어 있으므로, 기능 단계는
+`NOT_IMPLEMENTED`와 종료 코드 1을 반환합니다. 결과는 `artifacts/e2e/`에 보존합니다.
+[실행법·검증 조건·앱 연결 계약](docs/e2e.md)을 확인하세요.
+
 ## Codex 작업 로그
 
 Python 표준 라이브러리만 사용합니다. 이 프로젝트의 Codex 세션에서 시작

@@ -5,3 +5,12 @@ __pycache__/
 .env
 .env.*
 !.env.example
+node_modules/
+.venv/
+.tools/
+frontend/.next/
+artifacts/
+e2e/config.local.json
+api key.txt
+infra/data/
+

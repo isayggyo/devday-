@@ -1,0 +1,34 @@
+{
+  "title": "Retrieval practice and spaced repetition",
+  "language": "en-US",
+  "license": "CC0-1.0; original fixture text authored for this project",
+  "pdf": "lecture.pdf",
+  "audio": "lecture.wav",
+  "pages": [
+    {
+      "page": 1,
+      "title": "Retrieval practice and spaced repetition",
+      "paragraphs": [
+        "Retrieval practice strengthens memory by recalling information without looking at notes. Active recall is different from rereading. Close the book, answer a question, then check the answer.",
+        "Spaced repetition distributes practice across several days. Review material after one day, three days, and seven days. The schedule is an example, not a universal rule."
+      ]
+    },
+    {
+      "page": 2,
+      "title": "Cognitive load and study design",
+      "paragraphs": [
+        "Working memory has limited capacity. A visual slide should focus on one central idea and show its source page. Short explanations help learners connect spoken examples with the lecture material.",
+        "Combine an active recall question with a spaced review plan. Use feedback to find errors, revise the explanation, and try again later."
+      ]
+    }
+  ],
+  "pdf_sha256": "2385404f27f2d26f7a0d35299ed51cc9434afb5a885c1b7eddb484e773b645ff",
+  "audio_sha256": "9ce554ec5e9983242dd1ac5ea6017937aaec3f4060fc237d0572819d764e1888",
+  "audio_format": {
+    "encoding": "PCM",
+    "sample_rate": 16000,
+    "channels": 1,
+    "bits_per_sample": 16,
+    "duration_seconds": 52.98
+  }
+}
