@@ -114,6 +114,7 @@ class TranscriptAssembler:
 
     def complete(self, item, text):
         with self.factory() as db:
+            owned_session(db, self.session_id, self.user, lock=True)
             turn = db.get(TranscriptionTurn, self.items[item])
             existing = db.get(TranscriptSegment, turn.id)
             if existing:

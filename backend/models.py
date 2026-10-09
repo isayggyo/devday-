@@ -122,3 +122,16 @@ class LiveNote(Base):
     last_sequence: Mapped[int] = mapped_column(Integer, default=-1)
     error_code: Mapped[str | None] = mapped_column(String(80))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContextSnapshot(Base):
+    __tablename__ = 'context_snapshots'
+    snapshot_id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey('lecture_sessions.id', ondelete='CASCADE'), index=True)
+    question_id: Mapped[UUID] = mapped_column(unique=True)
+    transcript_high_watermark: Mapped[int] = mapped_column(Integer)
+    material_revisions: Mapped[dict] = mapped_column(JSONB)
+    frozen_blocks: Mapped[list] = mapped_column(JSONB)
+    coverage: Mapped[dict] = mapped_column(JSONB)
+    diagnostics: Mapped[list] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

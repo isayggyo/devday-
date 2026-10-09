@@ -111,3 +111,9 @@
 - Mock ?? ??? 2? PASS: ????????? ? ??? ?? ??/???. ?? AI ???? ??? PASS: 4? ?? ??, ??? ?? Live Note, ??? ? ?? ??.
 - ?? ??: `artifacts/phase1/step5-1791521226181/result.json`.
 - ??: Step 7 ?? ?? ContextSnapshot ? WindowContextProvider.
+
+## Step 7 ? 2026-10-09 13:56
+
+- Immutable ContextSnapshot + WindowContextProvider interface. Confirmed transcript window (default 180 seconds), selected material pages and secondary rolling notes; evidence copied at registration, primary/secondary evidence separated.
+- Real PostgreSQL tests: 3 PASS (future/changed transcript, selected page version and ownership, insufficient context). Both databases migrated to 0006_context.
+- Next: Step 8 asynchronous, deduplicated grounded Q&A.
