@@ -24,6 +24,7 @@ TRANSITIONS = {
 
 class CreateSession(BaseModel):
     title: str = Field(min_length=1, max_length=200)
+    courseKey: str | None = Field(default=None, max_length=100)
 
     @field_validator("title")
     @classmethod
@@ -43,6 +44,7 @@ class SessionView(BaseModel):
     created_at: datetime = Field(serialization_alias="createdAt")
     started_at: datetime | None = Field(serialization_alias="startedAt")
     ended_at: datetime | None = Field(serialization_alias="endedAt")
+    course_key: str | None = Field(default=None, serialization_alias='courseKey')
 
     @field_serializer("created_at", "started_at", "ended_at")
     def utc_time(self, value):
@@ -78,7 +80,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 @router.post("", response_model=SessionView, status_code=201)
 def create_session(request: CreateSession, user: str = Depends(current_user), db: Session = Depends(database_session), x_e2e_run_id: str | None = Header(default=None, max_length=200)):
-    item = LectureSession(title=request.title, user_id=user, test_run_id=x_e2e_run_id if get_settings().e2e_mode else None)
+    item = LectureSession(title=request.title, user_id=user, course_key=(request.courseKey or '').strip() or None, test_run_id=x_e2e_run_id if get_settings().e2e_mode else None)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -93,6 +95,18 @@ def list_sessions(user: str = Depends(current_user), db: Session = Depends(datab
 @router.get("/{session_id}", response_model=SessionView)
 def get_session(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
     return owned_session(db, session_id, user)
+
+
+class CourseLink(BaseModel):
+    courseKey: str | None = Field(default=None, max_length=100)
+
+
+@router.patch('/{session_id}/course', response_model=SessionView)
+def link_course(session_id: UUID, request: CourseLink, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    session = owned_session(db, session_id, user, lock=True)
+    if session.status == 'processing': raise HTTPException(409, {'code': 'SYNTHESIS_RUNNING', 'message': '생성 작업이 끝난 뒤 과목 연결을 변경해 주세요.'})
+    session.course_key = (request.courseKey or '').strip() or None; db.commit()
+    return session
 
 
 class ChangeSession(BaseModel):

@@ -10,3 +10,5 @@ th { background: #eef3ff; }
 figure { margin: 20px 0; padding: 16px; border: 1px solid #dce2e8; border-radius: 8px; }
 figcaption { font-weight: 600; margin-bottom: 12px; }
 .katex-display { overflow-x: auto; overflow-y: hidden; }
+.final-slide { padding: 20px; margin: 20px 0; border: 1px solid #dce2e8; border-radius: 10px; }
+button[aria-pressed="true"] { background: #dbe7ff; border-color: #758fc1; }

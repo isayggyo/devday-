@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { mathMarkup, visualBody, type Visual } from '../lib/visual.ts';
+import { slideContent, type FinalSlide } from '../lib/slides.ts';
 
 const elements = () => ({ headings: [], rows: [], nodes: [], edges: [], equations: [], paragraphs: [] });
 function visual(layout: Visual['layoutType'], content: Partial<Visual['elements']>): Visual {
@@ -29,4 +30,11 @@ test('malformed JSON data/layout content falls back and text layout remains avai
   assert.match(renderToStaticMarkup(visualBody({ elements: null } as unknown as Visual)), /visual-fallback/);
   assert.match(renderToStaticMarkup(visualBody(visual('concept_diagram', { nodes: [{ id: 'a', label: 'A', detail: '' }], edges: [{ fromId: 'a', toId: 'missing', label: '' }] }))), /visual-fallback/);
   assert.match(renderToStaticMarkup(visualBody(visual('text_explanation', { paragraphs: ['Unit text explanation'] }))), /Unit text explanation/);
+});
+
+test('application hints/answer are folded by default and PDF solution inclusion is explicit', () => {
+  const slide = { ...visual('text_explanation', { paragraphs: ['Unit application question'] }), kind: 'challenge', body: 'Unit new situation', evidenceRefs: [], hints: ['Unit hint'], answer: 'Unit answer', solution: 'Unit solution' } as FinalSlide;
+  const collapsed = renderToStaticMarkup(slideContent(slide));
+  assert.match(collapsed, /<details/); assert.doesNotMatch(collapsed, /open=""/);
+  assert.match(renderToStaticMarkup(slideContent(slide, true)), /open=""/);
 });

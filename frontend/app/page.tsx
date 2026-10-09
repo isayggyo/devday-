@@ -7,11 +7,13 @@ import { Materials } from '../components/materials';
 import { AudioRecorder } from '../components/audio-recorder';
 import { LiveNotes } from '../components/live-notes';
 import { Questions } from '../components/questions';
+import { FinalSlides } from '../components/final-slides';
 
 export default function Page() {
   const [session, setSession] = useState<LectureSession | null>(null);
   const selectSession = useCallback((item: LectureSession) => setSession(item), []);
   const prepared = useCallback((sessionId: string) => setSession(previous => previous?.id === sessionId ? { ...previous, status: 'preparing' } : previous), []);
+  const finalStatus = useCallback((id: string, status: string) => setSession(previous => previous?.id === id && previous.status !== status ? { ...previous, status } : previous), []);
 
   return <main data-testid="lecture-app">
     <h1>강의 워크스페이스</h1>
@@ -22,6 +24,6 @@ export default function Page() {
     <AudioRecorder key={'audio-' + (session?.id ?? 'none')} session={session} onSession={selectSession} />
     {session && <LiveNotes key={'notes-' + session.id} sessionId={session.id} />}
     {session && <Questions key={'questions-' + session.id} sessionId={session.id} />}
-    <section aria-label="생성된 슬라이드"><h2>시각 슬라이드</h2><p>NOT_IMPLEMENTED · 생성된 슬라이드가 없습니다.</p></section>
+    {session && <FinalSlides key={'final-' + session.id} session={session} onStatus={finalStatus} />}
   </main>;
 }

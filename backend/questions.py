@@ -55,7 +55,7 @@ def question_view(db, row):
     return {'id': str(row.id), 'sessionId': str(row.session_id), 'clientQuestionId': str(row.client_question_id),
         'questionText': row.question_text, 'contextSnapshotId': str(row.context_snapshot_id), 'createdAt': row.created_at.isoformat(),
         'status': row.status, 'errorCode': row.error_code, 'snapshot': snapshot_view(snapshot),
-        'answer': answer_view(answer) if answer else None, 'visual': visual_view(visual) if visual else None}
+        'answer': answer_view(answer) if answer else None, 'visual': visual_view(visual) if visual else None, 'reactions': row.reactions}
 
 
 def answer_job(identifier, user, factory=None, generator=None, provider=None):
@@ -147,4 +147,17 @@ def retry_question(session_id: UUID, question_id: UUID, user: str = Depends(curr
     if row.status == 'ready': return question_view(db, row)
     if row.status == 'running' and row.updated_at > datetime.now(timezone.utc)-timedelta(seconds=90): raise HTTPException(409, {'code': 'ANSWER_RUNNING'})
     row.status = 'queued'; row.error_code = None; db.commit(); schedule_answer(row.id, user)
+    return question_view(db, row)
+
+
+class ReactionRequest(StrictModel):
+    reaction: Literal['not_understood', 'important', 'more_explanation']
+    active: bool
+
+
+@router.patch('/sessions/{session_id}/questions/{question_id}/reaction')
+def save_reaction(session_id: UUID, question_id: UUID, request: ReactionRequest, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    row = question_owned(db, question_id, user, session_id, lock=True)
+    row.reactions = (row.reactions or {}) | {request.reaction: request.active}
+    db.commit()
     return question_view(db, row)

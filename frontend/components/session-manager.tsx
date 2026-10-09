@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { readJson } from '../lib/api';
 
 export type LectureSession = {
-  id: string; title: string; status: string; userId: string;
+  id: string; title: string; status: string; userId: string; courseKey?: string | null;
   createdAt: string; startedAt: string | null; endedAt: string | null;
 };
 
@@ -13,6 +13,8 @@ const labels: Record<string, string> = { created: '생성됨', preparing: '준�
 export function SessionManager({ onSelect, selected }: { onSelect: (session: LectureSession) => void; selected: LectureSession | null }) {
   const [items, setItems] = useState<LectureSession[]>([]);
   const [title, setTitle] = useState('');
+  const [courseKey, setCourseKey] = useState('');
+  const [linkedCourse, setLinkedCourse] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const select = useCallback((item: LectureSession) => {
@@ -34,11 +36,12 @@ export function SessionManager({ onSelect, selected }: { onSelect: (session: Lec
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (selected) setItems(previous => previous.map(item => item.id === selected.id ? selected : item)); }, [selected]);
+  useEffect(() => setLinkedCourse(selected?.courseKey ?? ''), [selected?.id, selected?.courseKey]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
     try {
-      const item = await readJson<LectureSession>(await fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }));
+      const item = await readJson<LectureSession>(await fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, courseKey: courseKey.trim() || null }) }));
       setItems(previous => [item, ...previous]); select(item); setTitle('');
     } catch (failure) { setError(failure instanceof Error ? failure.message : '강의 생성에 실패했습니다.'); }
     finally { setBusy(false); }
@@ -47,8 +50,13 @@ export function SessionManager({ onSelect, selected }: { onSelect: (session: Lec
   return <section aria-label="강의 세션">
     <h2>내 강의</h2>
     <p>현재 로컬 개발용 임시 사용자로 사용 중입니다.</p>
+    {selected && <div><label>선택한 강의의 과목 <input value={linkedCourse} onChange={event => setLinkedCourse(event.target.value)} maxLength={100} /></label><button disabled={selected.status === 'processing'} onClick={async () => {
+      try { select(await readJson<LectureSession>(await fetch(`/api/sessions/${selected.id}/course`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseKey: linkedCourse }) }))); }
+      catch (failure) { setError(failure instanceof Error ? failure.message : '과목 연결을 저장하지 못했습니다.'); }
+    }}>과목 연결 저장</button></div>}
     <form onSubmit={create}>
       <label>강의 제목 <input data-testid="session-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={200} required /></label>
+      <label>과목 (선택) <input data-testid="session-course" value={courseKey} onChange={event => setCourseKey(event.target.value)} maxLength={100} placeholder="같은 과목의 강의에는 같은 이름을 입력하세요" /></label>
       <button data-testid="session-create" disabled={busy || !title.trim()}>{busy ? '생성 중…' : '새 강의 만들기'}</button>
     </form>
     {error && <p role="alert">{error} <button onClick={() => void load()}>다시 불러오기</button></p>}
