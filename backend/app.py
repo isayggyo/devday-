@@ -24,6 +24,7 @@ from backend.audio import router as audio_router, StartCapture, StopCapture, sta
 from backend.models import AudioChunk
 from backend.transcription import router as transcription_router, list_segments
 from backend.notes import router as notes_router
+from backend.questions import router as questions_router
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -33,6 +34,7 @@ app.include_router(material_router)
 app.include_router(audio_router)
 app.include_router(transcription_router)
 app.include_router(notes_router)
+app.include_router(questions_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,

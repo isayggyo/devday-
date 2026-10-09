@@ -17,7 +17,7 @@ from .generation import StrictModel, Citation, generate, validate_citations, Gen
 
 router = APIRouter(prefix='/sessions/{session_id}/notes', tags=['notes'])
 pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='live-notes')
-lock = threading.Lock(); inflight = set()
+lock = threading.Lock(); inflight = set(); timers = {}; forced = set()
 
 
 class NoteOutput(StrictModel):
@@ -38,14 +38,16 @@ def note_job(session_id, user, force=False, factory=None, generator=None):
             owned_session(db, session_id, user, lock=True)
             previous = db.scalar(select(LiveNote).where(LiveNote.session_id == session_id).order_by(LiveNote.end_ms.desc(), LiveNote.updated_at.desc()).limit(1))
             if previous and previous.status == 'generating': return
-            rows = db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id, TranscriptSegment.sequence > (previous.last_sequence if previous else -1)).order_by(TranscriptSegment.sequence)).all()
+            covered = {identifier for note in db.scalars(select(LiveNote).where(LiveNote.session_id == session_id)) for identifier in note.transcript_segment_ids}
+            rows = [row for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)) if str(row.id) not in covered]
             if not rows: return
             elapsed = (datetime.now(timezone.utc) - previous.updated_at).total_seconds() if previous else 999
             if not force and len(rows) < get_settings().note_min_segments and elapsed < get_settings().note_interval_seconds: return
             if not force and not previous and len(rows) < get_settings().note_min_segments: return
             if previous and (previous.status == 'failed' or (previous.summary and rows[-1].end_ms - previous.start_ms <= 90000)):
                 note = previous
-                rows = db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id, TranscriptSegment.start_ms >= previous.start_ms).order_by(TranscriptSegment.sequence)).all()
+                include = set(previous.transcript_segment_ids) | {str(row.id) for row in rows}
+                rows = [row for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)) if str(row.id) in include]
             else:
                 note = LiveNote(session_id=session_id); db.add(note)
             old_summary = note.summary or ''
@@ -68,12 +70,22 @@ def note_job(session_id, user, force=False, factory=None, generator=None):
 
 def schedule_notes(session_id, user, force=False):
     with lock:
-        if session_id in inflight: return
+        if not force and session_id not in timers:
+            def flush():
+                with lock: timers.pop(session_id, None)
+                schedule_notes(session_id, user, True)
+            timer = threading.Timer(get_settings().note_interval_seconds, flush); timer.daemon = True
+            timers[session_id] = timer; timer.start()
+        if session_id in inflight:
+            if force: forced.add(session_id)
+            return
         inflight.add(session_id)
     def run():
         try: note_job(session_id, user, force)
         finally:
-            with lock: inflight.discard(session_id)
+            with lock:
+                inflight.discard(session_id); again = session_id in forced; forced.discard(session_id)
+            if again: schedule_notes(session_id, user, True)
     pool.submit(run)
 
 

@@ -6,6 +6,7 @@ import { SessionManager, type LectureSession } from '../components/session-manag
 import { Materials } from '../components/materials';
 import { AudioRecorder } from '../components/audio-recorder';
 import { LiveNotes } from '../components/live-notes';
+import { Questions } from '../components/questions';
 
 export default function Page() {
   const [session, setSession] = useState<LectureSession | null>(null);
@@ -20,6 +21,7 @@ export default function Page() {
     <Materials key={'materials-' + (session?.id ?? 'none')} session={session} onPrepared={prepared} />
     <AudioRecorder key={'audio-' + (session?.id ?? 'none')} session={session} onSession={selectSession} />
     {session && <LiveNotes key={'notes-' + session.id} sessionId={session.id} />}
+    {session && <Questions key={'questions-' + session.id} sessionId={session.id} />}
     <section aria-label="생성된 슬라이드"><h2>시각 슬라이드</h2><p>NOT_IMPLEMENTED · 생성된 슬라이드가 없습니다.</p></section>
   </main>;
 }

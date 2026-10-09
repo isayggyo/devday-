@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, model_validator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     generation_model: str = "gpt-6-luna"
     note_min_segments: int = 2
     note_interval_seconds: int = 20
-    context_window_seconds: int = 180
+    context_window_seconds: int = Field(default=180, ge=120, le=300)
 
     @model_validator(mode="after")
     def production_auth(self):

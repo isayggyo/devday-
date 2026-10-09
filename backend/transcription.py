@@ -152,7 +152,9 @@ async def stream_transcription(socket: WebSocket, session_id: UUID, token: str):
 
     def connection_status(status, provider=None, error=None):
         with factory() as db:
-            row = db.get(TranscriptionConnection, connection_id); row.status = status; row.error_code = error
+            row = db.get(TranscriptionConnection, connection_id)
+            if not row: return  # A test session may have been deleted after socket close.
+            row.status = status; row.error_code = error
             if provider: row.provider_session_id = provider
             if status != "connected":
                 db.execute(update(TranscriptionTurn).where(TranscriptionTurn.connection_id == connection_id, TranscriptionTurn.status == "pending").values(status="failed", error_code=error or "STT_INTERRUPTED"))

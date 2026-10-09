@@ -66,8 +66,13 @@
 - 실제 OpenAI 실시간 전사·자막 저장·재연결을 Chrome과 고정 음성으로 검증 PASS.
 - 사용자가 Step 10 착수 전에 중단하고 Step 9까지 마무리하도록 범위 조정. 최종 슬라이드 구현은 진행하지 않음.
 
-### 2026-10-09 13:52 KST ? Step 6 ??
-- ?? Responses Live Notes, ?? ?? ??, ?? revision???/??? UI ??. ?? ??? 2? ? ?? AI/Chrome ??? PASS (`step5-1791521226181`). Step 7 ??. Step 10 ?? ??.
+### 2026-10-09 13:52 KST — Step 6 완료
+- 실제 Responses Live Notes, 원본 출처 검증, revision·실패 재시도 UI 구현. Mock 2개/실제 AI 테스트 PASS (`step5-1791521226181`). Step 10 제외 유지.
 
-### 2026-10-09 13:56 KST ? Step 7 complete
+### 2026-10-09 13:56 KST — Step 7 complete
 - Immutable question-time evidence and ContextProvider implemented. Three actual PostgreSQL boundary tests PASS. No embeddings/vector search.
+
+### 2026-10-09 14:02 KST — Step 8 완료
+- 비동기 Q&A 저장·시점 고정·출처 검증·중복/재시도 UI 구현. 실제 AI Chrome 테스트 PASS (`step5-1791522059507`), 질문 중 녹음/STT/노트 갱신 확인.
+- rereading 상세 비교의 근거 부족 실제 응답도 보존. 테스트는 자료에 두 정의가 있는 retrieval practice/spaced repetition 비교로 정상 경로 검증. 가짜 답변을 앱에 주입하지 않음.
+- PDF 공백 normalization assertion 및 Uvicorn access formatter 수정, 관련 테스트 PASS. Step 9 착수.

@@ -11,10 +11,10 @@
 | 3 | PDF/PPT 자료 저장·페이지 분석·표시 | 완료 |
 | 4 | 녹음·IndexedDB 백업·업로드·재시도 | 완료 |
 | 5 | 실제 OpenAI 실시간 전사 | 완료 |
-| 6 | 확정 전사 기반 Live Notes | 진행 중 |
-| 7 | ContextProvider·고정 Snapshot | 대기 |
-| 8 | 비동기 학생 Q&A | 대기 |
-| 9 | 선택적 시각 설명 | 대기 |
+| 6 | 확정 전사 기반 Live Notes | 완료 |
+| 7 | ContextProvider·고정 Snapshot | 완료 |
+| 8 | 비동기 학생 Q&A | 완료 |
+| 9 | 선택적 시각 설명 | 진행 중 |
 | 10 | 종료 후 최종 슬라이드·PDF | 사용자 요청으로 착수 전 중단 |
 | 11 | 통합 화면·복구 UI | 이번 요청 범위 밖 |
 | 12 | 최종 안정화·반복 E2E | 이번 요청 범위 밖 |
@@ -105,15 +105,23 @@
 
 - 사용자 요청: Step 9까지 구현·검증 후 멈춤. Step 10 최종 슬라이드 생성에는 착수하지 않음.
 
-## Step 6 ? 2026-10-09 13:52
+## Step 6 — 2026-10-09 13:52
 
-- ?? ?? ??? Responses API? ???? ?? ID??? ??? ???? ??. revision? ???? ?? ??? ??. ?? ??? ??/STT? ???? ??? ??.
-- Mock ?? ??? 2? PASS: ????????? ? ??? ?? ??/???. ?? AI ???? ??? PASS: 4? ?? ??, ??? ?? Live Note, ??? ? ?? ??.
-- ?? ??: `artifacts/phase1/step5-1791521226181/result.json`.
-- ??: Step 7 ?? ?? ContextSnapshot ? WindowContextProvider.
+- 확정 전사를 실제 Responses API로 요약하고 ID·인용 구절을 검증. 영속 revision·실패 재시도 UI 구현.
+- Mock 경계 테스트 2개 PASS. 실제 Chrome/AI 테스트: 4개 확정 자막, 출처가 연결된 Live Note, 재연결 중 녹음 유지 PASS.
+- 결과: `artifacts/phase1/step5-1791521226181/result.json`.
+- 이후 조용한 발화 구간에서도 20초 배치 마감, 늦게 확정된 발화 누락 방지 보강.
 
-## Step 7 ? 2026-10-09 13:56
+## Step 7 — 2026-10-09 13:56
 
 - Immutable ContextSnapshot + WindowContextProvider interface. Confirmed transcript window (default 180 seconds), selected material pages and secondary rolling notes; evidence copied at registration, primary/secondary evidence separated.
 - Real PostgreSQL tests: 3 PASS (future/changed transcript, selected page version and ownership, insufficient context). Both databases migrated to 0006_context.
 - Next: Step 8 asynchronous, deduplicated grounded Q&A.
+
+## Step 8 — 2026-10-09 14:02
+
+- 질문·고정 Snapshot·답변을 DB에 저장. 독립 작업 스레드에서 ContextProvider를 거쳐 실제 Responses 답변 생성. clientQuestionId 중복/충돌, 인용 ID·버전·본문 검증, 근거 부족·실패 재시도 구현.
+- DB 경계 테스트 3개와 타입 검사 PASS. 실제 Chrome 테스트 PASS: 자료 선택, 실제 답변/인용, 재전송 중복 방지, 질문 중 녹음·전사·노트 revision 갱신.
+- 결과: `artifacts/phase1/step5-1791522059507/result.json`. 근거 부족 실제 응답은 `step5-1791521950335/result.json`에 보존.
+- 발견한 PDF 공백 비교 assertion과 Uvicorn 로그 포맷 오류 수정. 로그 비밀 티켓 마스킹 회귀 테스트 PASS.
+- 다음: Step 9 선택적 시각 설명. Step 10 미착수 유지.

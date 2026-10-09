@@ -135,3 +135,29 @@ class ContextSnapshot(Base):
     coverage: Mapped[dict] = mapped_column(JSONB)
     diagnostics: Mapped[list] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StudentQuestion(Base):
+    __tablename__ = 'student_questions'
+    __table_args__ = (UniqueConstraint('session_id', 'client_question_id', name='question_client_id'),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey('lecture_sessions.id', ondelete='CASCADE'), index=True)
+    client_question_id: Mapped[UUID] = mapped_column()
+    question_text: Mapped[str] = mapped_column()
+    context_snapshot_id: Mapped[UUID] = mapped_column(ForeignKey('context_snapshots.snapshot_id', ondelete='CASCADE'))
+    selected_page_ids: Mapped[list] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(20), default='queued')
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GeneratedAnswer(Base):
+    __tablename__ = 'generated_answers'
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    question_id: Mapped[UUID] = mapped_column(ForeignKey('student_questions.id', ondelete='CASCADE'), unique=True)
+    answer: Mapped[str] = mapped_column()
+    citations: Mapped[list] = mapped_column(JSONB)
+    grounding_status: Mapped[str] = mapped_column(String(30))
+    needs_visual: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
