@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import threading
 from uuid import UUID
 
@@ -37,7 +37,9 @@ def note_job(session_id, user, force=False, factory=None, generator=None):
         with factory() as db:
             owned_session(db, session_id, user, lock=True)
             previous = db.scalar(select(LiveNote).where(LiveNote.session_id == session_id).order_by(LiveNote.end_ms.desc(), LiveNote.updated_at.desc()).limit(1))
-            if previous and previous.status == 'generating': return
+            if previous and previous.status == 'generating':
+                if previous.updated_at > datetime.now(timezone.utc)-timedelta(seconds=90): return
+                previous.status = 'failed'; previous.error_code = 'NOTE_WORKER_INTERRUPTED'
             covered = {identifier for note in db.scalars(select(LiveNote).where(LiveNote.session_id == session_id)) for identifier in note.transcript_segment_ids}
             rows = [row for row in db.scalars(select(TranscriptSegment).where(TranscriptSegment.session_id == session_id).order_by(TranscriptSegment.sequence)) if str(row.id) not in covered]
             if not rows: return
@@ -51,7 +53,7 @@ def note_job(session_id, user, force=False, factory=None, generator=None):
             else:
                 note = LiveNote(session_id=session_id); db.add(note)
             old_summary = note.summary or ''
-            note.status = 'generating'; db.commit(); identifier = note.id
+            note.status = 'generating'; note.updated_at = datetime.now(timezone.utc); db.commit(); identifier = note.id
             evidence = [{'sourceType': 'transcript', 'sourceId': str(row.id), 'revision': row.revision, 'pageNumber': None, 'text': row.text} for row in rows]
             bounds = rows[0].start_ms, rows[-1].end_ms, rows[-1].sequence
         output = generator(NoteOutput, 'Create a concise lecture note from the confirmed transcript batch. Merge improvements with the prior note and avoid repetitive wording. Every note needs primary transcript citations.', {'evidence': evidence, 'previousSummary': old_summary})
@@ -65,7 +67,9 @@ def note_job(session_id, user, force=False, factory=None, generator=None):
         if identifier:
             with factory() as db:
                 note = db.get(LiveNote, identifier)
-                if note: note.status = 'failed'; note.error_code = str(error) if isinstance(error, GenerationError) else 'NOTE_GENERATION_FAILED'; db.commit()
+                if note:
+                    note.status = 'failed'; note.error_code = str(error) if isinstance(error, GenerationError) else 'NOTE_GENERATION_FAILED'
+                    note.updated_at = datetime.now(timezone.utc); db.commit()
 
 
 def schedule_notes(session_id, user, force=False):

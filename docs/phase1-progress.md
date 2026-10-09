@@ -14,7 +14,7 @@
 | 6 | 확정 전사 기반 Live Notes | 완료 |
 | 7 | ContextProvider·고정 Snapshot | 완료 |
 | 8 | 비동기 학생 Q&A | 완료 |
-| 9 | 선택적 시각 설명 | 진행 중 |
+| 9 | 선택적 시각 설명 | 완료 |
 | 10 | 종료 후 최종 슬라이드·PDF | 사용자 요청으로 착수 전 중단 |
 | 11 | 통합 화면·복구 UI | 이번 요청 범위 밖 |
 | 12 | 최종 안정화·반복 E2E | 이번 요청 범위 밖 |
@@ -125,3 +125,15 @@
 - 결과: `artifacts/phase1/step5-1791522059507/result.json`. 근거 부족 실제 응답은 `step5-1791521950335/result.json`에 보존.
 - 발견한 PDF 공백 비교 assertion과 Uvicorn 로그 포맷 오류 수정. 로그 비밀 티켓 마스킹 회귀 테스트 PASS.
 - 다음: Step 9 선택적 시각 설명. Step 10 미착수 유지.
+
+## Step 9 — 2026-10-09 14:31
+
+- 실제 Responses Structured JSON 기반 선택적 시각 설명. equation·comparison·flowchart·concept_diagram·text_explanation 지원. 답변과 별도 작업으로 생성하고 ID·출처·revision·실패 상태를 저장.
+- React/SVG/KaTeX 렌더러, 비교 열·그래프 노드/간선·출처 검증, JSON/수식 실패 시 텍스트 답변 유지 및 재시도 구현. 모든 답변에 자동 생성하지 않으며 사용자가 형식을 골라 요청할 수 있음.
+- 전체 백엔드 55개, 프론트엔드 7개, 기존 하네스 12개, TypeScript 검사 및 Next.js 프로덕션 빌드 PASS.
+- 최종 실제 AI/Chrome 반복: `python scripts/run_lecture_e2e.py --runs=3` → 3/3 PASS. 자료 선택·전사·노트 갱신·질문 Snapshot·실제 답변·비교표·인용·녹음 중지·청크 저장·세션 정리 확인.
+- 결과: `artifacts/phase1/step9-suite-1791523870307/summary.json`. 가짜 자막·슬라이드·답변을 앱에 주입하지 않음. Mock 테스트와 실제 AI 결과를 분리.
+- 보존한 실패: 첫 시각 응답 검증 실패(`step9-1791522574428`), 테스트 중 소스 수정/자동 갱신과 겹친 녹음 중지 실패(`step9-1791523054238`), 소스 고정 반복에서도 원본 청크가 없는 실행(`step9-1791523294917`). 독립 Native MediaRecorder/AudioWorklet/IndexedDB 진단은 작업/임시 경로 모두 6/6 PASS. 마지막 현상의 원인은 확정하지 못했으며 최초 청크 필수 확인·실패 상태 수집으로 잘못된 PASS를 차단.
+- 제한: 실제 AI 브라우저 시각 검증은 비교표를 대상으로 함. 수식·흐름도·개념도·텍스트 및 실패 대체는 스키마/실제 React 렌더링 단위 테스트로 검증. 물리 마이크·OS 절전 수동 테스트는 미실시. 로컬 개발 인증이며 운영 JWT와 자동 작업 큐 복구는 미구현.
+- 요청대로 Step 9에서 중단. Step 10 최종 슬라이드·합성·PDF 내보내기는 착수하지 않음.
+- 기존 스모크 최종 재검증: `python scripts/run_e2e.py --runs=3` → 모든 run의 1–5단계 PASS, 6–8단계 NOT_IMPLEMENTED(제외한 최종 슬라이드/세션 완료). 콘솔/API 오류 0, 모든 정리 단계 PASS, 의도한 종료 코드 1. `artifacts/e2e/2026-10-09T05-32-25-812Z-5be131ec/summary.md`.

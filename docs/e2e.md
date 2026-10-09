@@ -1,9 +1,23 @@
 # 강의 웹앱 스모크 E2E
 
 Puppeteer가 로컬 Next.js 프론트엔드와 FastAPI 백엔드를 직접 실행하고,
-실제 Chrome for Testing에서 8단계 시나리오를 검증합니다. 현재 앱은
-실제 PostgreSQL의 세션 관리와 S3 저장소의 자료 업로드·페이지 분석을 제공합니다. 자막과 슬라이드를
+실제 Chrome for Testing에서 8단계 시나리오를 검증합니다. 앱은 실제 PostgreSQL/S3 기반
+세션·자료·녹음과 실제 OpenAI 전사·노트·Q&A·선택적 시각 설명을 제공합니다. 자막과 슬라이드를
 주입하거나 API를 성공 응답으로 대체하지 않습니다.
+
+현재 작업 범위는 개발 명세 Step 9까지입니다. 최종 슬라이드/강의 종료 합성은 Step 10이므로
+기존 8단계 스모크의 슬라이드 및 세션 종료 단계는 `NOT_IMPLEMENTED`로 남습니다.
+답변에 붙는 시각 설명을 최종 슬라이드로 간주하지 않습니다.
+
+```powershell
+python scripts/run_lecture_e2e.py --runs=3
+```
+
+이 검증은 실제 PDF·WAV·Chrome·OpenAI로 자막, Live Notes, 선택 자료와 질문 Snapshot,
+답변과 인용, 선택적 비교표 생성·React 렌더링, 녹음 중지·원본 업로드를 검사합니다.
+질문/시각 생성 중에도 녹음이 유지되는지 확인합니다. 각 단계의 성공 여부와 실행 시간,
+콘솔/API 오류 및 화면을 `artifacts/phase1/step9-*/`에 보관하고 반복 결과를 suite summary로 저장합니다.
+기능 단위 Mock 테스트와 실제 AI 브라우저 검증 결과는 분리합니다.
 
 ## 실행
 
@@ -107,7 +121,8 @@ python scripts/generate_pdf_fixture.py
 
 ## 앱 구현 시 유지할 계약
 
-현재 기능 상태는 `backend/app.py`의 `CAPABILITIES`에서 모두 `false`입니다.
+현재 `backend/app.py`의 `CAPABILITIES`에서 `upload`·`recording`·`transcription`은 `true`,
+`slides`·`provenance`·`session_end`는 Step 10 범위이므로 `false`입니다.
 실제 기능을 구현한 뒤 해당 값을 `true`로 바꾸고 아래 UI/API를 연결하면
 하네스가 자동으로 해당 단계를 검증합니다. 데이터는 실제 업로드·오디오·전사·
 생성 결과에서 나와야 합니다. 테스트에서는 결과를 만들어 주지 않습니다.

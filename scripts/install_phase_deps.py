@@ -9,9 +9,14 @@ from setup_e2e import project_npm
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--step", type=int, required=True, choices=[1, 3, 5])
+    parser.add_argument("--step", type=int, required=True, choices=[1, 3, 5, 9])
     step = parser.parse_args().step
     python = ROOT / ".venv/Scripts/python.exe"
+    if step == 9:
+        node = find_node()
+        for packages in [['--workspace', 'frontend', 'katex@0.19.0'], ['--save-dev', '@types/katex@0.16.8']]:
+            subprocess.run([node, str(project_npm()), 'install', '--save-exact', *packages, '--no-audit', '--no-fund'], cwd=ROOT, env=node_environment(node), check=True)
+        return
     packages = [
         "SQLAlchemy>=2.0,<2.1", "psycopg[binary]>=3.2,<4", "alembic>=1.14,<2",
         "pydantic-settings>=2.8,<3", "pytest>=8,<10", "httpx>=0.28,<1",

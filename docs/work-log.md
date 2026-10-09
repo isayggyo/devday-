@@ -76,3 +76,13 @@
 - 비동기 Q&A 저장·시점 고정·출처 검증·중복/재시도 UI 구현. 실제 AI Chrome 테스트 PASS (`step5-1791522059507`), 질문 중 녹음/STT/노트 갱신 확인.
 - rereading 상세 비교의 근거 부족 실제 응답도 보존. 테스트는 자료에 두 정의가 있는 retrieval practice/spaced repetition 비교로 정상 경로 검증. 가짜 답변을 앱에 주입하지 않음.
 - PDF 공백 normalization assertion 및 Uvicorn access formatter 수정, 관련 테스트 PASS. Step 9 착수.
+
+### 2026-10-09 14:31 KST — Step 9 완료 / Step 10 이전 중단
+- 선택적 실제 Responses 시각 생성, 영속 출처/revision, React·SVG·KaTeX, 오류 시 텍스트 답변 보존과 재시도 구현.
+- 전체 백엔드 55개/프론트 7개/하네스 12개/타입 검사/프로덕션 빌드 PASS. 실제 AI 통합 3/3 PASS: `artifacts/phase1/step9-suite-1791523870307/summary.json`.
+- 이전 시각 검증 실패 및 녹음 중지 실패는 그대로 보존. 소스 수정에 의한 자동 갱신이 한 실행에 개입했고, 소스 고정 실행에서도 원본 청크가 없는 사례가 있어 진단을 추가함. Native MediaRecorder/AudioWorklet/IndexedDB 독립 6회 진단 PASS, 마지막 사례의 원인 미확정. 초기 청크 필수 확인으로 원본 미생성의 가짜 통과 방지.
+- 기존 스모크와 실제 자막 UI/API 계약을 맞춤. Step 10 제외 유지, 로그 수집 유지.
+
+### 2026-10-09 14:35 KST — 최종 검증 기록
+- 기존 스모크 3/3: 1–5 PASS, 6–8 NOT_IMPLEMENTED(명시적 Step 10 제외), 콘솔/API 오류 0 및 모든 정리 PASS. 종료 코드 1은 예상 결과. `artifacts/e2e/2026-10-09T05-32-25-812Z-5be131ec/summary.md`.
+- 실제 Step 9 AI 흐름은 3/3 PASS. 로컬 main에 구현과 문서를 체크포인트로 저장. 검토용 로컬 개발 서버를 시작하며 외부 배포/대회 제출은 하지 않음.

@@ -25,6 +25,7 @@ from backend.models import AudioChunk
 from backend.transcription import router as transcription_router, list_segments
 from backend.notes import router as notes_router
 from backend.questions import router as questions_router
+from backend.visuals import router as visuals_router
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -35,6 +36,7 @@ app.include_router(audio_router)
 app.include_router(transcription_router)
 app.include_router(notes_router)
 app.include_router(questions_router)
+app.include_router(visuals_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
@@ -136,7 +138,7 @@ def start_recording(session_id: UUID, request: StartCapture, user: str = Depends
 
 @app.get("/api/sessions/{session_id}/transcripts")
 def transcripts(item: LectureSession = Depends(session_by_id), db: Session = Depends(database_session)):
-    return list_segments(item.id, item.user_id, db)
+    return [segment | {'session_id': segment['sessionId']} for segment in list_segments(item.id, item.user_id, db)]
 
 
 @app.get("/api/sessions/{session_id}/slides")

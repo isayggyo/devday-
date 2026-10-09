@@ -2,10 +2,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { readJson } from '../lib/api';
 import type { MaterialDocument } from './materials';
+import { VisualExplanation } from './visual-explanation';
+import type { Visual } from '../lib/visual';
 
 export type Citation = { sourceType: 'transcript' | 'material'; sourceId: string; revision: number; pageNumber: number | null; excerpt: string };
 export type Answer = { id: string; questionId: string; answer: string; citations: Citation[]; groundingStatus: 'grounded' | 'insufficient_context'; needsVisual: boolean };
-export type Question = { id: string; sessionId: string; clientQuestionId: string; questionText: string; contextSnapshotId: string; status: string; errorCode: string | null; answer: Answer | null };
+export type Question = { id: string; sessionId: string; clientQuestionId: string; questionText: string; contextSnapshotId: string; status: string; errorCode: string | null; answer: Answer | null; visual: Visual | null };
 type Block = { id: string; text: string; sourceType: string; sourceRef: { startMs?: number; endMs?: number; pageNumber?: number; imageRef?: string; filename?: string }; isPrimaryEvidence: boolean };
 
 export function Evidence({ sessionId, question }: { sessionId: string; question: Question }) {
@@ -67,7 +69,8 @@ export function Questions({ sessionId }: { sessionId: string }) {
     {questions.map(question => <article key={question.id} data-testid="question-card" data-question-id={question.id} data-status={question.status}>
       <h3>{question.questionText}</h3>{!question.answer && <p>{question.status === 'failed' ? `답변 생성 실패: ${question.errorCode}` : '질문 시점의 근거로 답변을 생성하고 있습니다…'}</p>}
       {!question.answer && <button onClick={() => void retry(question)}>답변 생성 재시도</button>}
-      {question.answer && <><p data-testid="question-answer" style={{ whiteSpace: 'pre-wrap' }}>{question.answer.answer}</p><p>{question.answer.groundingStatus === 'grounded' ? '강의 근거 확인됨 · AI 설명' : '질문 시점의 강의 근거가 부족합니다'}</p><Evidence sessionId={sessionId} question={question} /></>}
+      {question.answer && <><p data-testid="question-answer" style={{ whiteSpace: 'pre-wrap' }}>{question.answer.answer}</p><p>{question.answer.groundingStatus === 'grounded' ? '강의 근거 확인됨 · AI 설명' : '질문 시점의 강의 근거가 부족합니다'}</p><Evidence sessionId={sessionId} question={question} />
+        {question.answer.groundingStatus === 'grounded' && <VisualExplanation sessionId={sessionId} questionId={question.id} visual={question.visual} />}</>}
     </article>)}
   </section>;
 }

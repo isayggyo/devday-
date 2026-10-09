@@ -1,4 +1,5 @@
 import './style.css';
+import 'katex/dist/katex.min.css';
 
 export const metadata = { title: 'Lecture workspace — implementation baseline' };
 

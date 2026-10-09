@@ -3,28 +3,41 @@ import { randomUUID } from 'node:crypto';
 import { ROOT, parseOptions, discoverChrome, check } from './core.mjs';
 import { Journal, services, stopService, launchBrowser, observeMedia, writeJson } from './runtime.mjs';
 const quoteMatches = (text, excerpt) => text.replace(/\s+/g, ' ').trim().includes(excerpt.replace(/\s+/g, ' ').trim());
-const options = parseOptions([]); options.chrome = discoverChrome(options.chrome);
-const directory = path.join(ROOT, 'artifacts/phase1/step5-' + Date.now()), journal = new Journal(directory), owned = [];
+const options = parseOptions(process.argv.slice(2).filter(argument => !['--notes', '--questions', '--visuals'].includes(argument))); options.chrome = discoverChrome(options.chrome);
+const step = process.argv.includes('--visuals') ? 9 : process.argv.includes('--questions') ? 8 : process.argv.includes('--notes') ? 6 : 5;
+async function run() {
+const directory = path.join(ROOT, `artifacts/phase1/step${step}-` + Date.now()), journal = new Journal(directory), owned = [];
 const headers = { 'X-Dev-User-Id': 'real-ai-' + randomUUID() };
 let browser, page, sessionId, result;
 let notes, question, evidence;
+const stages = []; let activeStage;
+function begin(name) {
+  if (activeStage) stages.push({ name: activeStage.name, status: 'PASS', durationMs: performance.now()-activeStage.started });
+  activeStage = name ? { name, started: performance.now() } : null; journal.step = name ?? 'cleanup';
+}
 try {
+  begin('services_and_health');
   await services(options, journal, owned);
   const created = await fetch(options.backendUrl + '/api/e2e/sessions', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: randomUUID() }) });
   check(created.ok, 'Session creation failed'); sessionId = (await created.json()).id;
+  begin('open_app');
   browser = await launchBrowser(options, journal); page = await browser.newPage(); await page.setExtraHTTPHeaders(headers);
   journal.attach(page, options.backendUrl); await journal.attachSockets(page, options.backendUrl); await observeMedia(page);
   await page.goto(options.frontendUrl + '/?session=' + sessionId, { waitUntil: 'networkidle0' });
   await page.waitForFunction(id => document.querySelector('[data-testid="session-state"]')?.dataset.sessionId === id, {}, sessionId);
   if (process.argv.includes('--questions')) {
+    begin('upload_pdf_and_select_context_page');
     const input = await page.$('[data-testid="lecture-pdf-input"]'); await input.uploadFile(options.pdf);
     await page.click('[data-testid="lecture-upload"]');
     await page.waitForSelector('[data-testid="lecture-document"]', { timeout: 60000 });
     await page.waitForSelector('[data-testid="question-material-page"]');
     await page.click('[data-testid="question-material-page"]');
   }
+  begin('start_recording');
   await page.click('[data-testid="recording-start"]');
+  await page.waitForFunction(() => Number(document.querySelector('[data-testid="audio-backup"]')?.dataset.bytes) > 0, { timeout: 15000 });
   await page.waitForSelector('[data-testid="transcription-status"][data-status="connected"]', { timeout: 30000 });
+  begin('real_transcription_and_reconnect');
   await page.waitForSelector('[data-testid="transcript-item"]', { timeout: 45000 });
   let segments = await fetch(options.backendUrl + '/sessions/' + sessionId + '/transcript-segments', { headers }).then(response => response.json());
   check(segments.length && segments.some(segment => /retriev|practice|learn|memory|lecture/i.test(segment.text)), 'Real fixed lecture audio did not produce its spoken concepts');
@@ -34,6 +47,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="transcript-item"]').length >= 2, { timeout: 45000 });
   check((await page.evaluate(() => window.__e2eMedia.snapshot())).recorderStates.includes('recording'), 'STT reconnection stopped original recording');
   if (process.argv.includes('--notes') || process.argv.includes('--questions')) {
+    begin('live_notes');
     await page.waitForSelector('[data-testid="live-note"][data-status="ready"]', { timeout: 60000 });
     notes = await fetch(options.backendUrl + '/sessions/' + sessionId + '/notes', { headers }).then(response => response.json());
     check(notes.some(note => note.status === 'ready' && note.summary.length > 0 && note.sourceRefs.length > 0), 'Real Responses API did not produce a persisted grounded note');
@@ -41,6 +55,7 @@ try {
     for (const note of notes.filter(note => note.status === 'ready')) for (const ref of note.sourceRefs) check(transcripts.some(segment => segment.id === ref.sourceId && segment.text.includes(ref.excerpt)), 'Live note citation is not grounded in its actual transcript');
   }
   if (process.argv.includes('--questions')) {
+    begin('question_snapshot_and_grounded_answer');
     const before = await fetch(options.backendUrl + '/sessions/' + sessionId + '/transcript-segments', { headers }).then(response => response.json());
     await page.type('[data-testid="question-input"]', '강의자료에 나오는 retrieval practice와 spaced repetition의 정의와 방법을 비교해 주세요.');
     await page.click('[data-testid="question-submit"]');
@@ -57,6 +72,21 @@ try {
     check((await page.evaluate(() => window.__e2eMedia.snapshot())).recorderStates.includes('recording'), 'Q&A stopped audio capture');
     await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="live-note"]')].some(note => Number(note.dataset.revision) > 1), { timeout: 45000 });
   }
+  if (process.argv.includes('--visuals')) {
+    begin('visual_explanation');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="visual-request"]')?.disabled, { timeout: 65000 });
+    await page.select('[data-testid="visual-layout"]', 'comparison');
+    await page.click('[data-testid="visual-request"]');
+    await page.waitForFunction(() => document.querySelector('[data-testid="visual-explanation"][data-status="ready"][data-layout="comparison"]') || document.querySelector('[data-testid="visual-fallback"]'), { timeout: 65000 });
+    [question] = await fetch(options.backendUrl + '/sessions/' + sessionId + '/questions', { headers }).then(response => response.json());
+    check(question.visual?.status === 'ready' && question.visual.layoutType === 'comparison', 'Actual visual generation failed: ' + question.visual?.errorCode);
+    check(await page.$('[data-testid="visual-comparison"]'), 'React comparison table did not render');
+    [question] = await fetch(options.backendUrl + '/sessions/' + sessionId + '/questions', { headers }).then(response => response.json());
+    check(question.visual.sourceRefs.length > 0 && question.visual.revision >= 1, 'Actual Responses visual was not persisted with sources');
+    for (const ref of question.visual.sourceRefs) check(evidence.bundle.contextBlocks.some(block => block.id === ref.sourceId && block.isPrimaryEvidence && block.sourceRef.revision === ref.revision && quoteMatches(block.text, ref.excerpt)), 'Actual visual citation is invalid');
+    check((await page.evaluate(() => window.__e2eMedia.snapshot())).recorderStates.includes('recording'), 'Visual generation stopped original audio capture');
+  }
+  begin('stop_recording_and_flush_original_audio');
   await page.click('[data-testid="recording-stop"]');
   await page.waitForSelector('[data-testid="recording-state"][data-state="stopped"]', { timeout: 35000 });
   await page.waitForFunction(() => document.querySelector('[data-testid="audio-backup"]')?.dataset.pending === '0');
@@ -65,10 +95,15 @@ try {
   check(segments.every((segment, index) => segment.committedAt && segment.revision === 1 && segment.endMs >= segment.startMs && (index === 0 || segment.sequence > segments[index - 1].sequence)), 'Committed transcript order/timestamps are invalid');
   check(journal.errors.length === 0, 'Unexpected browser/API diagnostics');
   await page.screenshot({ path: path.join(directory, 'real-transcription.png'), fullPage: true });
-  result = { status: 'PASS', realAI: true, sessionId, segments, notes, question, evidence, reconnectKeptRecording: true };
+  begin(null);
+  result = { status: 'PASS', realAI: true, sessionId, segments, notes, question, evidence, stages, reconnectKeptRecording: true, excluded: ['step10_final_slides_and_session_synthesis'] };
 } catch (error) {
-  result = { status: 'FAIL', realAI: true, message: error.message, question, evidence }; console.error(error.message);
-  if (page && !page.isClosed()) await page.screenshot({ path: path.join(directory, 'failure.png') }).catch(() => {});
+  if (activeStage) stages.push({ name: activeStage.name, status: 'FAIL', durationMs: performance.now()-activeStage.started, message: error.message });
+  result = { status: 'FAIL', realAI: true, message: error.message, question, evidence, stages }; console.error(error.message);
+  if (page && !page.isClosed()) {
+    result.media = await page.evaluate(() => ({ ...window.__e2eMedia?.snapshot(), capture: document.querySelector('[data-testid="recording-state"]')?.outerHTML, backup: document.querySelector('[data-testid="audio-backup"]')?.outerHTML, notices: [...document.querySelectorAll('[role="status"]')].map(item => item.textContent) })).catch(() => null);
+    await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {});
+  }
 } finally {
   journal.step = 'cleanup'; if (page && !page.isClosed()) await page.evaluate(() => window.__e2eMedia?.release()).catch(() => {});
   if (browser) await browser.close();
@@ -76,4 +111,12 @@ try {
   for (const service of owned.reverse()) { try { await stopService(service, journal); } catch (error) { result = { ...result, status: 'FAIL', cleanup: error.message }; } }
   await journal.flush(); writeJson(path.join(directory, 'result.json'), result);
 }
-console.log('Real transcription:', result.status, directory); process.exitCode = result.status === 'PASS' ? 0 : 1;
+console.log('Real transcription:', result.status, directory); return { ...result, directory };
+
+}
+const results = [];
+for (let index=0; index<options.runs; index++) results.push(await run());
+const summary = { throughStep: step, requestedRuns: options.runs, realAI: true, status: results.every(result => result.status === "PASS") ? "PASS" : "FAIL", runs: results };
+const summaryPath = path.join(ROOT, `artifacts/phase1/step${step}-suite-${Date.now()}/summary.json`);
+writeJson(summaryPath, summary); console.log("Scoped suite:", summary.status, summaryPath);
+process.exitCode = summary.status === "PASS" ? 0 : 1;

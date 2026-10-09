@@ -3,3 +3,10 @@ main { max-width: 900px; margin: 40px auto; padding: 32px; background: white; bo
 section { border-top: 1px solid #dce2e8; padding: 16px 0; }
 button { margin: 12px 12px 0 0; padding: 10px 16px; }
 input { margin-left: 12px; }
+textarea { display: block; width: min(100%, 640px); min-height: 90px; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #dce2e8; padding: 12px; text-align: left; vertical-align: top; }
+th { background: #eef3ff; }
+figure { margin: 20px 0; padding: 16px; border: 1px solid #dce2e8; border-radius: 8px; }
+figcaption { font-weight: 600; margin-bottom: 12px; }
+.katex-display { overflow-x: auto; overflow-y: hidden; }

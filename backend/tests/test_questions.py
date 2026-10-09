@@ -76,3 +76,16 @@ def test_provider_boundary_and_future_transcript_exclusion(environment):
     provider = Provider()
     questions.answer_job(UUID(question['id']), user, factory, mock_answer, provider)
     assert provider.called
+
+
+def test_simultaneous_duplicate_registration_is_atomic(environment):
+    from concurrent.futures import ThreadPoolExecutor
+    client, factory, user, _ = environment
+    session_id = create(client, user)['id']; client_id = uuid4()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: register(environment, session_id, client_id=client_id), range(2)))
+    assert all(result.status_code == 202 for result in results)
+    assert results[0].json()['id'] == results[1].json()['id']
+    with factory() as db:
+        assert len(db.scalars(select(StudentQuestion).where(StudentQuestion.session_id == UUID(session_id))).all()) == 1
+        assert len(db.scalars(select(ContextSnapshot).where(ContextSnapshot.session_id == UUID(session_id))).all()) == 1

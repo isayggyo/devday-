@@ -82,6 +82,6 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
     {captions.message && <p role="status">{captions.message}</p>}
     {active && <button data-testid="transcription-retry" onClick={() => transcription.current?.retry()}>전사 다시 연결</button>}
     {captions.partial && <p data-testid="transcript-partial">{captions.partial} <small>부분 전사 · 아직 확정되지 않음</small></p>}
-    <ol>{captions.segments.map(segment => <li key={segment.id} data-testid="transcript-item" data-segment-id={segment.id}><time>{Math.floor(segment.startMs / 1000)}초</time> {segment.text}</li>)}</ol>
+    <ol>{captions.segments.map(segment => <li key={segment.id} data-testid="transcript-item" data-segment-id={segment.id} data-transcript-id={segment.id} data-session-id={session?.id}><time>{Math.floor(segment.startMs / 1000)}초</time> <span data-testid="transcript-text">{segment.text}</span></li>)}</ol>
   </section></>;
 }

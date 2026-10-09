@@ -161,3 +161,18 @@ class GeneratedAnswer(Base):
     grounding_status: Mapped[str] = mapped_column(String(30))
     needs_visual: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class VisualExplanation(Base):
+    __tablename__ = 'visual_explanations'
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    answer_id: Mapped[UUID] = mapped_column(ForeignKey('generated_answers.id', ondelete='CASCADE'), unique=True)
+    layout_type: Mapped[str | None] = mapped_column(String(30))
+    requested_layout: Mapped[str | None] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(default='')
+    elements: Mapped[dict] = mapped_column(JSONB, default=dict)
+    source_refs: Mapped[list] = mapped_column(JSONB, default=list)
+    revision: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(String(20), default='queued')
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

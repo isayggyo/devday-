@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .auth import current_user
 from .db import database_session, session_factory
-from .models import StudentQuestion, GeneratedAnswer, ContextSnapshot
+from .models import StudentQuestion, GeneratedAnswer, ContextSnapshot, VisualExplanation
 from .session_manager import owned_session
 from .context import freeze_context, WindowContextProvider, primary_evidence, snapshot_view
 from .generation import StrictModel, Citation, generate, validate_citations, GenerationError
@@ -49,11 +49,13 @@ def answer_view(row):
 
 def question_view(db, row):
     answer = db.scalar(select(GeneratedAnswer).where(GeneratedAnswer.question_id == row.id))
+    visual = db.scalar(select(VisualExplanation).where(VisualExplanation.answer_id == answer.id)) if answer else None
+    from .visuals import visual_view
     snapshot = db.get(ContextSnapshot, row.context_snapshot_id)
     return {'id': str(row.id), 'sessionId': str(row.session_id), 'clientQuestionId': str(row.client_question_id),
         'questionText': row.question_text, 'contextSnapshotId': str(row.context_snapshot_id), 'createdAt': row.created_at.isoformat(),
         'status': row.status, 'errorCode': row.error_code, 'snapshot': snapshot_view(snapshot),
-        'answer': answer_view(answer) if answer else None}
+        'answer': answer_view(answer) if answer else None, 'visual': visual_view(visual) if visual else None}
 
 
 def answer_job(identifier, user, factory=None, generator=None, provider=None):
@@ -80,9 +82,13 @@ def answer_job(identifier, user, factory=None, generator=None, provider=None):
         with factory() as db:
             question = question_owned(db, identifier, user, lock=True)
             if db.scalar(select(GeneratedAnswer).where(GeneratedAnswer.question_id == identifier)): return
-            db.add(GeneratedAnswer(question_id=identifier, answer=output.answer, citations=[ref.model_dump() for ref in output.citations],
-                grounding_status=output.groundingStatus, needs_visual=output.needsVisual and output.groundingStatus == 'grounded'))
+            answer = GeneratedAnswer(question_id=identifier, answer=output.answer, citations=[ref.model_dump() for ref in output.citations],
+                grounding_status=output.groundingStatus, needs_visual=output.needsVisual and output.groundingStatus == 'grounded')
+            db.add(answer)
             question.status = 'ready'; question.updated_at = datetime.now(timezone.utc); db.commit()
+            if answer.needs_visual:
+                from .visuals import schedule_visual
+                schedule_visual(answer.id, user)
     except Exception as error:
         if claimed:
             with factory() as db:

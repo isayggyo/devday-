@@ -4,7 +4,7 @@ import re
 from typing import Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .config import get_settings
 
@@ -64,4 +64,10 @@ def generate(model, instructions, data):
         if not texts: raise GenerationError('AI_REFUSED_OR_EMPTY')
         return model.model_validate_json(''.join(texts))
     except GenerationError: raise
+    except httpx.TimeoutException: raise GenerationError('AI_TIMEOUT') from None
+    except httpx.HTTPError: raise GenerationError('AI_TRANSPORT_FAILED') from None
+    except ValidationError as error:
+        first = error.errors(include_input=False, include_context=False)[0]
+        path = '.'.join(str(part) for part in first['loc']) or 'root'
+        raise GenerationError(('AI_SCHEMA_INVALID:' + path + ':' + first['type'])[:80]) from None
     except Exception: raise GenerationError('AI_RESPONSE_INVALID') from None
