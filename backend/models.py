@@ -19,6 +19,7 @@ class LectureSession(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     test_run_id: Mapped[str | None] = mapped_column(String(200))
+    capture_id: Mapped[UUID | None] = mapped_column()
 
 
 class MaterialDocument(Base):
@@ -44,3 +45,19 @@ class MaterialPage(Base):
     description: Mapped[str] = mapped_column()
     image_ref: Mapped[str] = mapped_column(String(500))
     metadata_json: Mapped[dict] = mapped_column("metadata", JSONB)
+
+
+class AudioChunk(Base):
+    __tablename__ = "audio_chunks"
+    __table_args__ = (UniqueConstraint("session_id", "sequence", name="audio_chunk_sequence"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    capture_id: Mapped[UUID] = mapped_column()
+    sequence: Mapped[int] = mapped_column(Integer)
+    start_ms: Mapped[int] = mapped_column(Integer)
+    end_ms: Mapped[int] = mapped_column(Integer)
+    byte_length: Mapped[int] = mapped_column(Integer)
+    mime_type: Mapped[str] = mapped_column(String(100))
+    sha256: Mapped[str] = mapped_column(String(64))
+    object_ref: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

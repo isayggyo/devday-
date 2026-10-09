@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, field_serializer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,10 @@ class SessionView(BaseModel):
     created_at: datetime = Field(serialization_alias="createdAt")
     started_at: datetime | None = Field(serialization_alias="startedAt")
     ended_at: datetime | None = Field(serialization_alias="endedAt")
+
+    @field_serializer("created_at", "started_at", "ended_at")
+    def utc_time(self, value):
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z") if value else None
 
 
 def owned_session(db: Session, session_id: UUID, user_id: str, *, lock=False):

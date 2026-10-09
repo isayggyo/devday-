@@ -58,7 +58,7 @@ export function SessionManager({ onSelect, selected }: { onSelect: (session: Lec
         try { select(await readJson<LectureSession>(await fetch('/api/sessions/' + item.id))); }
         catch (failure) { setError(failure instanceof Error ? failure.message : '강의 조회에 실패했습니다.'); }
       }}>{item.title} · {labels[item.status] ?? item.status}</button></li>)}</ul>
-    <p data-testid="session-state" data-session-id={selected?.id ?? ''} data-state={selected && ['created', 'preparing'].includes(selected.status) ? 'idle' : selected?.status ?? 'idle'}>
+    <p data-testid="session-state" data-session-id={selected?.id ?? ''} data-state={selected && ['created', 'preparing'].includes(selected.status) ? 'idle' : selected?.status === 'finalizing' ? 'stopped' : selected?.status === 'completed' ? 'ended' : selected?.status ?? 'idle'}>
       {selected ? `${selected.title} · ${labels[selected.status] ?? selected.status}` : '강의를 생성하거나 선택해 주세요.'}
     </p>
   </section>;

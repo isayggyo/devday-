@@ -18,12 +18,16 @@ from backend.materials import router as material_router, upload as upload_materi
 from backend.storage import get_object_store, ObjectStore
 from backend.models import MaterialDocument, MaterialPage
 from sqlalchemy import select
+from sqlalchemy import func
+from backend.audio import router as audio_router, StartCapture, StopCapture, start_recording as start_capture, stop_recording as stop_capture
+from backend.models import AudioChunk
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 app = FastAPI(title="Lecture app baseline")
 app.include_router(session_router)
 app.include_router(material_router)
+app.include_router(audio_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +39,7 @@ app.add_middleware(
 # These flags describe product implementation, not the browser's media support.
 CAPABILITIES = {
     "upload": True,
-    "recording": False,
+    "recording": True,
     "transcription": False,
     "slides": False,
     "provenance": False,
@@ -97,7 +101,9 @@ def create_test_session(request: TestSession, user: str = Depends(current_user),
 @app.get("/api/sessions/{session_id}")
 def get_session(item: LectureSession = Depends(session_by_id), db: Session = Depends(database_session)):
     documents = [document_view(db, document) for document in db.scalars(select(MaterialDocument).where(MaterialDocument.session_id == item.id)).all()]
-    return {"id": str(item.id), "run_id": item.test_run_id, "state": "idle" if item.status in {"created", "preparing"} else item.status, "documents": documents, "transcripts": [], "slides": [], "audio_bytes": 0}
+    audio_bytes = db.scalar(select(func.coalesce(func.sum(AudioChunk.byte_length), 0)).where(AudioChunk.session_id == item.id))
+    state = "idle" if item.status in {"created", "preparing"} else "stopped" if item.status == "finalizing" else "ended" if item.status == "completed" else item.status
+    return {"id": str(item.id), "run_id": item.test_run_id, "state": state, "documents": documents, "transcripts": [], "slides": [], "audio_bytes": audio_bytes}
 
 
 @app.delete("/api/e2e/sessions/{session_id}", status_code=204)
@@ -117,8 +123,8 @@ def upload_document(session_id: UUID, file: UploadFile = File(...), user: str = 
 
 
 @app.post("/api/sessions/{session_id}/recording/start")
-def start_recording(item: LectureSession = Depends(session_by_id)):
-    not_implemented("recording")
+def start_recording(session_id: UUID, request: StartCapture, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    return start_capture(session_id, request, user, db)
 
 
 @app.get("/api/sessions/{session_id}/transcripts")
@@ -137,8 +143,8 @@ def slide(slide_id: str, item: LectureSession = Depends(session_by_id)):
 
 
 @app.post("/api/sessions/{session_id}/recording/stop")
-def stop_recording(item: LectureSession = Depends(session_by_id)):
-    not_implemented("recording")
+def stop_recording(session_id: UUID, request: StopCapture, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    return stop_capture(session_id, request, user, db)
 
 
 @app.post("/api/sessions/{session_id}/end")

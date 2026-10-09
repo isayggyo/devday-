@@ -215,9 +215,9 @@ export async function stopService({ label, child }, journal) {
   check(child.exitCode !== null || child.signalCode !== null, `Owned ${label} process did not exit`);
 }
 
-export async function launchBrowser(options, journal, profileName = 'profile') {
+export async function launchBrowser(options, journal, profileName = 'profile', fakeUi = true) {
   const args = [
-    '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
+    ...(fakeUi ? ['--use-fake-ui-for-media-stream'] : []), '--use-fake-device-for-media-stream',
     `--use-file-for-fake-audio-capture=${options.audio}`, '--autoplay-policy=no-user-gesture-required',
   ];
   journal.log('browser_launch', { executablePath: options.chrome, args, audioFixture: options.audio });
