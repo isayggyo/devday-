@@ -83,8 +83,9 @@ export function AudioRecorder({ session, onSession, onCaptureActive, autoStart =
       const chunks = await chunksFor(session.userId, session.id);
       if (chunks.some(chunk => !chunk.uploaded) || controller.current?.unsaved.length) throw new Error('미전송 음성을 먼저 재전송하거나 로컬 원본을 보관해 주세요.');
       const { readJson } = await import('../lib/api');
-      await readJson(await fetch(`/api/sessions/${session.id}/finish`, { method: 'POST' }));
-      onSession({ ...controller.current!.session, status: 'processing' });
+      const result = await readJson<{ sessionStatus: LectureSession['status']; status: string }>(await fetch(`/api/sessions/${session.id}/finish`, { method: 'POST' }));
+      onSession({ ...controller.current!.session, status: result.sessionStatus });
+      if (result.status === 'empty') setNotice('녹음을 종료했어요. 요약할 내용이 없어요.');
     } catch (failure) { setNotice(failure instanceof Error ? failure.message : '강의를 종료하지 못했습니다.'); }
     finally { setEnding(false); }
   }

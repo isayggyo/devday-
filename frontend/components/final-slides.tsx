@@ -33,6 +33,7 @@ export function FinalSlides({ session, onStatus }: { session: LectureSession; on
     finally { setBusy(false); }
   }
   return <section aria-label="최종 슬라이드" data-testid="final-slides" data-status={result.status}><h2>최종 학습 슬라이드</h2>
+    {result.status === 'empty' && <div className="final-empty" role="status"><h3>요약할 내용이 없어요</h3><p>녹음은 종료됐어요. 기록된 강의 내용이 없어 슬라이드를 만들지 않았어요.</p></div>}
     {result.status === 'not_started' && <p>강의를 종료하면 질문·학습 반응을 반영한 슬라이드와 응용 문제를 생성합니다.</p>}
     {['queued', 'generating', 'generating_challenge'].includes(result.status) && <p role="status">{result.status === 'generating_challenge' ? '본문 슬라이드가 저장됐습니다. 마지막 응용 문제를 추가하고 있습니다…' : '강의 내용과 학습 증거로 슬라이드를 생성하고 있습니다…'}</p>}
     {result.status === 'failed' && <><p role="alert">슬라이드 생성 실패: {result.errorCode}</p><button disabled={busy} onClick={() => void retry(false)}>슬라이드 생성 재시도</button></>}

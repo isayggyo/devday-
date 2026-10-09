@@ -184,14 +184,19 @@ def final_view(session):
 def finish(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
     session = owned_session(db, session_id, user, lock=True)
     state = session.final_result or {}
-    if state.get('status') == 'ready': return final_view(session)
+    if state.get('status') in {'ready', 'empty'}: return final_view(session)
     if state.get('status') in {'generating', 'generating_challenge', 'queued'} and datetime.fromisoformat(state['updatedAt']) > datetime.now(timezone.utc)-timedelta(seconds=180): return final_view(session)
     if session.status not in {'finalizing', 'processing', 'failed', 'completed'}: raise HTTPException(409, {'code': 'STOP_RECORDING_FIRST', 'message': '먼저 녹음을 중지해 원본 저장과 전사 확정을 마쳐 주세요.'})
     if db.scalar(select(TranscriptionTurn.id).where(TranscriptionTurn.session_id == session_id, TranscriptionTurn.status == 'pending').limit(1)):
         raise HTTPException(409, {'code': 'TRANSCRIPTION_PENDING', 'message': '마지막 전사가 확정될 때까지 기다려 주세요.'})
     chunks = db.scalars(select(AudioChunk).where(AudioChunk.session_id == session_id).order_by(AudioChunk.sequence)).all()
     if any(row.sequence != index for index, row in enumerate(chunks)): raise HTTPException(409, {'code': 'AUDIO_CHUNKS_MISSING', 'message': '미전송 음성 청크를 재전송한 뒤 다시 종료해 주세요.'})
-    if not lecture_sources(db, session_id): raise HTTPException(409, {'code': 'NO_LECTURE_EVIDENCE', 'message': '확정 전사나 분석된 강의자료가 필요합니다.'})
+    if not lecture_sources(db, session_id):
+        session.ended_at = session.ended_at or datetime.now(timezone.utc)
+        session.status = 'completed'
+        session.final_result = {'status': 'empty', 'slides': [], 'updatedAt': datetime.now(timezone.utc).isoformat()}
+        db.commit()
+        return final_view(session)
     session.ended_at = session.ended_at or datetime.now(timezone.utc)
     session.status = 'processing'
     session.final_result = state | {'status': 'queued', 'updatedAt': datetime.now(timezone.utc).isoformat()}; db.commit()
