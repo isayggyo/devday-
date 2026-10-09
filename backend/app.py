@@ -3,21 +3,28 @@
 import os
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.config import get_settings
 from backend.db import ping_database
 from backend.errors import install_error_handlers
+from backend.auth import current_user
+from backend.db import database_session
+from backend.models import LectureSession
+from backend.session_manager import router as session_router, owned_session
+from sqlalchemy.orm import Session
+from uuid import UUID
 
 app = FastAPI(title="Lecture app baseline")
+app.include_router(session_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[get_settings().frontend_origin],
-    allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "X-Dev-User-Id"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "Authorization", "X-Dev-User-Id", "X-E2E-Run-Id"],
 )
 
 # These flags describe product implementation, not the browser's media support.
@@ -29,7 +36,6 @@ CAPABILITIES = {
     "provenance": False,
     "session_end": False,
 }
-sessions: dict[str, dict] = {}
 
 
 class TestSession(BaseModel):
@@ -41,10 +47,8 @@ def require_e2e():
         raise HTTPException(404, "E2E session controls are disabled")
 
 
-def session_by_id(session_id: str):
-    if session_id not in sessions:
-        raise HTTPException(404, "Session not found")
-    return sessions[session_id]
+def session_by_id(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    return owned_session(db, session_id, user)
 
 
 def not_implemented(feature: str):
@@ -67,11 +71,14 @@ def capabilities():
 
 
 @app.post("/api/e2e/sessions", status_code=201)
-def create_test_session(request: TestSession):
+def create_test_session(request: TestSession, user: str = Depends(current_user), db: Session = Depends(database_session)):
     require_e2e()
-    session_id = str(uuid4())
+    item = LectureSession(title="E2E lecture", user_id=user, test_run_id=request.run_id)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
     session = {
-        "id": session_id,
+        "id": str(item.id),
         "run_id": request.run_id,
         "state": "idle",
         "documents": [],
@@ -79,60 +86,54 @@ def create_test_session(request: TestSession):
         "slides": [],
         "audio_bytes": 0,
     }
-    sessions[session_id] = session
     return session
 
 
 @app.get("/api/sessions/{session_id}")
-def get_session(session_id: str):
-    return session_by_id(session_id)
+def get_session(item: LectureSession = Depends(session_by_id)):
+    return {"id": str(item.id), "run_id": item.test_run_id, "state": "idle" if item.status in {"created", "preparing"} else item.status, "documents": [], "transcripts": [], "slides": [], "audio_bytes": 0}
 
 
 @app.delete("/api/e2e/sessions/{session_id}", status_code=204)
-def delete_test_session(session_id: str):
+def delete_test_session(item: LectureSession = Depends(session_by_id), db: Session = Depends(database_session)):
     require_e2e()
-    session_by_id(session_id)
-    del sessions[session_id]
+    if not item.test_run_id:
+        raise HTTPException(404, "Test session not found")
+    db.delete(item)
+    db.commit()
     return Response(status_code=204)
 
 
 @app.post("/api/sessions/{session_id}/documents")
-def upload_document(session_id: str):
-    session_by_id(session_id)
+def upload_document(item: LectureSession = Depends(session_by_id)):
     not_implemented("upload")
 
 
 @app.post("/api/sessions/{session_id}/recording/start")
-def start_recording(session_id: str):
-    session_by_id(session_id)
+def start_recording(item: LectureSession = Depends(session_by_id)):
     not_implemented("recording")
 
 
 @app.get("/api/sessions/{session_id}/transcripts")
-def transcripts(session_id: str):
-    session_by_id(session_id)
+def transcripts(item: LectureSession = Depends(session_by_id)):
     not_implemented("transcription")
 
 
 @app.get("/api/sessions/{session_id}/slides")
-def slides(session_id: str):
-    session_by_id(session_id)
+def slides(item: LectureSession = Depends(session_by_id)):
     not_implemented("slides")
 
 
 @app.get("/api/sessions/{session_id}/slides/{slide_id}")
-def slide(session_id: str, slide_id: str):
-    session_by_id(session_id)
+def slide(slide_id: str, item: LectureSession = Depends(session_by_id)):
     not_implemented("provenance")
 
 
 @app.post("/api/sessions/{session_id}/recording/stop")
-def stop_recording(session_id: str):
-    session_by_id(session_id)
+def stop_recording(item: LectureSession = Depends(session_by_id)):
     not_implemented("recording")
 
 
 @app.post("/api/sessions/{session_id}/end")
-def end_session(session_id: str):
-    session_by_id(session_id)
+def end_session(item: LectureSession = Depends(session_by_id)):
     not_implemented("session_end")

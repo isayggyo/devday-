@@ -1,0 +1,103 @@
+from datetime import datetime, timezone
+from typing import Literal
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Header
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from .auth import current_user
+from .db import database_session
+from .models import LectureSession
+from .config import get_settings
+
+TRANSITIONS = {
+    "created": {"preparing", "failed"},
+    "preparing": {"recording", "failed"},
+    "recording": {"finalizing", "failed"},
+    "finalizing": {"processing", "failed"},
+    "processing": {"completed", "failed"},
+    "completed": set(), "failed": set(),
+}
+
+
+class CreateSession(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Lecture title is required")
+        return value
+
+
+class SessionView(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    id: UUID
+    title: str
+    status: str
+    user_id: str = Field(serialization_alias="userId")
+    created_at: datetime = Field(serialization_alias="createdAt")
+    started_at: datetime | None = Field(serialization_alias="startedAt")
+    ended_at: datetime | None = Field(serialization_alias="endedAt")
+
+
+def owned_session(db: Session, session_id: UUID, user_id: str, *, lock=False):
+    query = select(LectureSession).where(LectureSession.id == session_id, LectureSession.user_id == user_id)
+    if lock:
+        query = query.with_for_update()
+    item = db.scalar(query)
+    if item is None:
+        raise HTTPException(404, {"code": "SESSION_NOT_FOUND", "message": "Lecture session not found"})
+    return item
+
+
+def transition(db: Session, session_id: UUID, user_id: str, target: str):
+    item = owned_session(db, session_id, user_id, lock=True)
+    if target not in TRANSITIONS[item.status]:
+        raise HTTPException(409, {"code": "INVALID_SESSION_TRANSITION", "message": f"Cannot change {item.status} to {target}"})
+    item.status = target
+    now = datetime.now(timezone.utc)
+    if target == "recording":
+        item.started_at = now
+    if target == "finalizing" or (target == "failed" and item.started_at):
+        item.ended_at = now
+    db.flush()
+    return item
+
+
+router = APIRouter(prefix="/sessions", tags=["sessions"])
+
+
+@router.post("", response_model=SessionView, status_code=201)
+def create_session(request: CreateSession, user: str = Depends(current_user), db: Session = Depends(database_session), x_e2e_run_id: str | None = Header(default=None, max_length=200)):
+    item = LectureSession(title=request.title, user_id=user, test_run_id=x_e2e_run_id if get_settings().e2e_mode else None)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.get("", response_model=list[SessionView])
+def list_sessions(user: str = Depends(current_user), db: Session = Depends(database_session)):
+    return db.scalars(select(LectureSession).where(LectureSession.user_id == user).order_by(LectureSession.created_at.desc())).all()
+
+
+@router.get("/{session_id}", response_model=SessionView)
+def get_session(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    return owned_session(db, session_id, user)
+
+
+class ChangeSession(BaseModel):
+    # Recording/finalization transitions belong to their actual pipelines, never an arbitrary client patch.
+    status: Literal["preparing", "failed"]
+
+
+@router.patch("/{session_id}", response_model=SessionView)
+def change_session(session_id: UUID, request: ChangeSession, user: str = Depends(current_user), db: Session = Depends(database_session)):
+    item = transition(db, session_id, user, request.status)
+    db.commit()
+    return item

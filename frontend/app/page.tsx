@@ -1,21 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { BackendStatus } from '../components/backend-status';
+import { SessionManager, type LectureSession } from '../components/session-manager';
 
 export default function Page() {
-  const [session, setSession] = useState('');
-  useEffect(() => {
-    setSession(new URL(window.location.href).searchParams.get('session') ?? '');
-  }, []);
+  const [session, setSession] = useState<LectureSession | null>(null);
+  const selectSession = useCallback((item: LectureSession) => setSession(item), []);
 
   return <main data-testid="lecture-app">
     <h1>강의 워크스페이스</h1>
     <BackendStatus />
     <p>웹앱 기능을 연결하기 위한 초기 화면입니다. 전사와 슬라이드는 아직 구현되지 않았습니다.</p>
-    <p data-testid="session-state" data-session-id={session} data-state="idle">
-      세션 상태: 대기
-    </p>
+    <SessionManager onSelect={selectSession} />
     <section>
       <h2>강의자료</h2>
       <label>PDF 선택 <input data-testid="lecture-pdf-input" type="file" accept="application/pdf" disabled /></label>

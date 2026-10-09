@@ -29,6 +29,7 @@ def start(e2e=False):
             if probe.connect_ex(("127.0.0.1", port)) == 0:
                 raise SystemExit(f"Port {port} is already in use; existing processes were left running.")
     start_postgres()
+    subprocess.run([str(ROOT / ".venv/Scripts/python.exe"), "-m", "backend.migrate"], cwd=ROOT, check=True)
     node = find_node()
     environment = node_environment(node)
     environment.update({"NEXT_TELEMETRY_DISABLED": "1", "E2E_MODE": "1" if e2e else "0", "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"})

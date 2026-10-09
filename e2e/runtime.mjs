@@ -196,7 +196,11 @@ export async function stopService({ label, child }, journal) {
     await new Promise((resolve, reject) => {
       const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true });
       killer.on('error', reject);
-      killer.on('exit', code => code === 0 || child.exitCode !== null ? resolve() : reject(new Error(`taskkill failed for owned ${label} PID ${child.pid}: ${code}`)));
+      killer.on('exit', code => {
+        journal.log('service_kill_result', { label, pid: child.pid, code });
+        // The child exit notification can arrive after taskkill's own exit, including an already-exited PID.
+        resolve();
+      });
     });
   } else {
     process.kill(-child.pid, 'SIGTERM');
