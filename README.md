@@ -11,14 +11,21 @@
 
 ```powershell
 python scripts/setup_e2e.py
+python scripts/local_postgres.py start
+python scripts/local_storage.py start
+python scripts/migrate.py
 python scripts/run_e2e.py --runs=3
 ```
 
 Puppeteer + `~/.cache/gyeol-cft`의 Chrome for Testing으로 실행합니다.
 실제 마이크 대신 고정 강의 WAV와 테스트 PDF를 사용합니다.
-현재는 최소 Next.js/FastAPI 셸만 구현되어 있으므로, 기능 단계는
-`NOT_IMPLEMENTED`와 종료 코드 1을 반환합니다. 결과는 `artifacts/e2e/`에 보존합니다.
+현재 영속 강의 세션 및 PDF/PPT 자료 업로드·페이지 분석이 구현되어 있습니다.
+후속 녹음·AI 기능은 단계별 개발 중이며, 미구현 단계는 `NOT_IMPLEMENTED`와
+종료 코드 1을 반환합니다. 결과는 `artifacts/e2e/`에 보존합니다.
 [실행법·검증 조건·앱 연결 계약](docs/e2e.md)을 확인하세요.
+
+웹앱 개발 환경 설치·실행은 [로컬 개발 안내](docs/local-development.md),
+단계별 구현·테스트 결과는 [Phase 1 진행 기록](docs/phase1-progress.md)을 참고하세요.
 
 ## Codex 작업 로그
 

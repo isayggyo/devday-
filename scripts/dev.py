@@ -11,6 +11,7 @@ import urllib.request
 
 from node_runtime import ROOT, find_node, node_environment
 from local_postgres import start as start_postgres
+from local_storage import start as start_storage
 
 STATE = ROOT / ".tools/dev/servers.json"
 
@@ -29,6 +30,7 @@ def start(e2e=False):
             if probe.connect_ex(("127.0.0.1", port)) == 0:
                 raise SystemExit(f"Port {port} is already in use; existing processes were left running.")
     start_postgres()
+    start_storage()
     subprocess.run([str(ROOT / ".venv/Scripts/python.exe"), "-m", "backend.migrate"], cwd=ROOT, check=True)
     node = find_node()
     environment = node_environment(node)

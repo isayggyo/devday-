@@ -10,14 +10,12 @@ export type LectureSession = {
 
 const labels: Record<string, string> = { created: '생성됨', preparing: '준비 중', recording: '녹음 중', finalizing: '녹음 마무리', processing: '학습 자료 생성 중', completed: '완료', failed: '실패' };
 
-export function SessionManager({ onSelect }: { onSelect: (session: LectureSession) => void }) {
+export function SessionManager({ onSelect, selected }: { onSelect: (session: LectureSession) => void; selected: LectureSession | null }) {
   const [items, setItems] = useState<LectureSession[]>([]);
-  const [selected, setSelected] = useState<LectureSession | null>(null);
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const select = useCallback((item: LectureSession) => {
-    setSelected(item);
     onSelect(item);
     const url = new URL(window.location.href);
     url.searchParams.set('session', item.id);
@@ -35,6 +33,7 @@ export function SessionManager({ onSelect }: { onSelect: (session: LectureSessio
   }, [select]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (selected) setItems(previous => previous.map(item => item.id === selected.id ? selected : item)); }, [selected]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');

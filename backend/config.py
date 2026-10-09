@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://127.0.0.1:3000"
     e2e_mode: bool = False
     openai_api_key: SecretStr = SecretStr("")
+    s3_endpoint: str = "http://127.0.0.1:8333"
+    s3_access_key: SecretStr = SecretStr("")
+    s3_secret_key: SecretStr = SecretStr("")
+    s3_region: str = "us-east-1"
+    s3_bucket: str = "lecture-dev"
+    s3_test_bucket: str = "lecture-test"
+    material_max_bytes: int = 30 * 1024 * 1024
+    material_max_pages: int = 200
+    libreoffice_path: str = str(ROOT / ".tools/libreoffice/program/soffice.com")
 
     @model_validator(mode="after")
     def production_auth(self):

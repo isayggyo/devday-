@@ -1,18 +1,22 @@
 # 강의 웹앱 스모크 E2E
 
 Puppeteer가 로컬 Next.js 프론트엔드와 FastAPI 백엔드를 직접 실행하고,
-실제 Chrome for Testing에서 8단계 시나리오를 검증합니다. 현재 앱 셸은
-헬스체크와 테스트 세션 관리만 구현되어 있습니다. 자막과 슬라이드를
+실제 Chrome for Testing에서 8단계 시나리오를 검증합니다. 현재 앱은
+실제 PostgreSQL의 세션 관리와 S3 저장소의 자료 업로드·페이지 분석을 제공합니다. 자막과 슬라이드를
 주입하거나 API를 성공 응답으로 대체하지 않습니다.
 
 ## 실행
 
-Python 3.10+와 Node 22.12+가 필요합니다. 이 PC에서는 PATH 밖에 있는
+Python 3.11+와 Node 22.12+가 필요합니다. 이 PC에서는 PATH 밖에 있는
 기존 Node 런타임도 Python 실행기가 찾습니다. 다른 환경에서는 Node를
 PATH에 두거나 `E2E_NODE`에 실행 파일 경로를 지정합니다.
 
 ```powershell
 python scripts/setup_e2e.py
+python scripts/local_postgres.py start
+python scripts/material_tools.py storage
+python scripts/local_storage.py start
+python scripts/migrate.py
 python scripts/run_e2e.py --runs=3
 ```
 

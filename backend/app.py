@@ -3,7 +3,7 @@
 import os
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Response, Depends
+from fastapi import FastAPI, HTTPException, Response, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -14,11 +14,16 @@ from backend.auth import current_user
 from backend.db import database_session
 from backend.models import LectureSession
 from backend.session_manager import router as session_router, owned_session
+from backend.materials import router as material_router, upload as upload_material, document_view
+from backend.storage import get_object_store, ObjectStore
+from backend.models import MaterialDocument, MaterialPage
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 app = FastAPI(title="Lecture app baseline")
 app.include_router(session_router)
+app.include_router(material_router)
 install_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
@@ -29,7 +34,7 @@ app.add_middleware(
 
 # These flags describe product implementation, not the browser's media support.
 CAPABILITIES = {
-    "upload": False,
+    "upload": True,
     "recording": False,
     "transcription": False,
     "slides": False,
@@ -90,8 +95,9 @@ def create_test_session(request: TestSession, user: str = Depends(current_user),
 
 
 @app.get("/api/sessions/{session_id}")
-def get_session(item: LectureSession = Depends(session_by_id)):
-    return {"id": str(item.id), "run_id": item.test_run_id, "state": "idle" if item.status in {"created", "preparing"} else item.status, "documents": [], "transcripts": [], "slides": [], "audio_bytes": 0}
+def get_session(item: LectureSession = Depends(session_by_id), db: Session = Depends(database_session)):
+    documents = [document_view(db, document) for document in db.scalars(select(MaterialDocument).where(MaterialDocument.session_id == item.id)).all()]
+    return {"id": str(item.id), "run_id": item.test_run_id, "state": "idle" if item.status in {"created", "preparing"} else item.status, "documents": documents, "transcripts": [], "slides": [], "audio_bytes": 0}
 
 
 @app.delete("/api/e2e/sessions/{session_id}", status_code=204)
@@ -99,14 +105,15 @@ def delete_test_session(item: LectureSession = Depends(session_by_id), db: Sessi
     require_e2e()
     if not item.test_run_id:
         raise HTTPException(404, "Test session not found")
+    get_object_store().delete_prefix(f"sessions/{item.id}/")
     db.delete(item)
     db.commit()
     return Response(status_code=204)
 
 
 @app.post("/api/sessions/{session_id}/documents")
-def upload_document(item: LectureSession = Depends(session_by_id)):
-    not_implemented("upload")
+def upload_document(session_id: UUID, file: UploadFile = File(...), user: str = Depends(current_user), db: Session = Depends(database_session), store: ObjectStore = Depends(get_object_store)):
+    return upload_material(session_id, file, user, db, store)
 
 
 @app.post("/api/sessions/{session_id}/recording/start")

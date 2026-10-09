@@ -8,8 +8,8 @@
 | 0 | 저장소와 기존 하네스 점검 | 완료 |
 | 1 | 프로젝트 기반, PostgreSQL, 환경 설정, 프론트/백 통신 | 완료 |
 | 2 | 사용자별 영속 강의 세션 | 완료 |
-| 3 | PDF/PPT 자료 저장·페이지 분석·표시 | 진행 중 |
-| 4 | 녹음·IndexedDB 백업·업로드·재시도 | 대기 |
+| 3 | PDF/PPT 자료 저장·페이지 분석·표시 | 완료 |
+| 4 | 녹음·IndexedDB 백업·업로드·재시도 | 진행 중 |
 | 5 | 실제 OpenAI 실시간 전사 | 대기 |
 | 6 | 확정 전사 기반 Live Notes | 대기 |
 | 7 | ContextProvider·고정 Snapshot | 대기 |
@@ -60,3 +60,17 @@
 - 초기 React 준비 전 입력과 의도된 재시작 중 HMR 연결 오류를 브라우저 준비 대기/페이지 종료로 수정. 프로세스 종료 알림 경합을 수정하고 하네스 12개 재검증 PASS.
 - 한계: 운영 JWT 검증은 제공하지 않음. 자료·녹음·AI는 다음 단계 대상.
 - 다음: Step 3 실제 Object Storage와 PDF/PPT 파싱, 첫 Vertical Slice.
+
+## Step 3 — 2026-10-09 13:05
+
+- 구현: 실제 SeaweedFS 4.48 S3 호환 Object Storage, PyMuPDF PDF 파싱, 실제 LibreOffice 26.2.6 PPT/PPTX 변환. 배포 URL·SHA-256 고정, 도구는 프로젝트 안에만 추출.
+- MaterialDocument/MaterialPage와 0002 DB 마이그레이션. 원본·변환 PDF·페이지 PNG·추출 이미지 바이너리는 Object Storage, 텍스트·표·텍스트 span·벡터·페이지 정보는 DB 저장.
+- 파일 형식·크기·페이지 수·암호화 검증, textless 페이지 needs_analysis, 처리 실패 상태 및 원본 보존 후 재시도. 모든 자료 API에서 세션 소유권 확인.
+- UI: 세션 생성 → PDF/PPT/PPTX 업로드 → 원본 열기·페이지 이동·이미지·추출 텍스트 표시, 로딩·실패·재처리.
+- 검증: `python scripts/test_phase.py --step=3` — 백엔드 26개, 프론트엔드 2개, 타입 검사 PASS. 실제 PDF 2페이지/PPTX 2페이지, legacy PPT→PDF, 표·수식 원본 표현, textless, 원본 해시, 사용자/세션 격리, 저장소 장애·실제 재시도 검증.
+- Chrome에서 PDF/PPTX 업로드·페이지 이동·새로고침 후 복원 PASS. 원본 SHA-256 일치, 브라우저 오류 없음, 테스트 세션·객체 삭제.
+- 결과: `artifacts/phase1/step3-1791518497742/result.json` 및 material-pages.png.
+- Windows Installer 추출이 대기해 lessmsi 파일 추출로 변경. LibreOffice 최초 로딩·변환은 수십 초 소요될 수 있으며 최대 120초로 제한.
+- 한계: OCR/시각 AI 분석은 제공하지 않음. 추출 불가능한 페이지는 명시적으로 추가 분석 필요 상태. 최종 슬라이드·전사는 미구현.
+- 다음: Step 4 실제 브라우저 녹음, IndexedDB 백업과 서버 전송·재시도.
+- 3회 스모크 재검증: 모든 run의 1~3단계 PASS, 4~8단계 NOT_IMPLEMENTED. 세션 격리·객체/세션 삭제 PASS, 최종 종료 코드 1(예상). `artifacts/e2e/2026-10-09T04-03-41-531Z-a6d9b38a/summary.md`.
