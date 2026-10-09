@@ -109,3 +109,60 @@ def test_versioned_migration_and_status_constraint(environment):
         from backend.config import ROOT
         assert db.scalar(text("SELECT version_num FROM alembic_version")) == ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini"))).get_current_head()
         assert db.scalar(text("SELECT count(*) FROM pg_constraint WHERE conname='session_status'")) == 1
+
+
+def test_delete_owned_session_cascades_and_removes_only_its_files(materials, monkeypatch):
+    from backend import questions
+    from backend.config import ROOT
+    from backend.models import MaterialDocument, MaterialPage, StudentQuestion, ContextSnapshot
+    from backend.tests.test_materials import upload
+    client, factory, user, other, item, store = materials
+    monkeypatch.setattr(questions, 'schedule_answer', lambda *args: None)
+    doc = upload(client, user, item, (ROOT/'e2e/fixtures/lecture.pdf').read_bytes(), 'lecture.pdf').json()
+    headers = {'X-Dev-User-Id': user}; path = '/sessions/'+item['id']
+    question = client.post(path+'/questions', headers=headers, json={'clientQuestionId': str(uuid4()), 'questionText': 'Explain retrieval practice', 'selectedPageIds': [doc['pages'][0]['id']]}).json()
+    sibling = create(client, user); sibling_key = f"sessions/{sibling['id']}/keep"
+    store.put(sibling_key, b'owned sibling content', 'application/octet-stream')
+    try:
+        assert client.delete(path, headers={'X-Dev-User-Id': other}).status_code == 404
+        assert client.get(doc['originalUrl'], headers=headers).status_code == 200
+        assert client.delete(path, headers=headers).status_code == 204
+        assert client.get(path, headers=headers).status_code == 404
+        assert client.delete(path, headers=headers).status_code == 404
+        with factory() as db:
+            for model, identifier in [(LectureSession, item['id']), (MaterialDocument, doc['id']), (MaterialPage, doc['pages'][0]['id']), (StudentQuestion, question['id']), (ContextSnapshot, question['contextSnapshotId'])]:
+                assert db.get(model, UUID(identifier)) is None
+        assert not store.client.list_objects_v2(Bucket=store.bucket, Prefix=f"sessions/{item['id']}/").get('Contents')
+        assert store.get(sibling_key) == b'owned sibling content'
+        assert client.get('/sessions/'+sibling['id'], headers=headers).status_code == 200
+    finally:
+        store.delete_prefix(f"sessions/{sibling['id']}/")
+
+
+def test_delete_busy_and_storage_failure_keep_session_for_retry(materials, monkeypatch):
+    from backend.models import MaterialDocument
+    client, factory, user, _, item, store = materials
+    headers = {'X-Dev-User-Id': user}; path = '/sessions/'+item['id']
+    with factory() as db:
+        for status in ['recording', 'processing']:
+            db.get(LectureSession, UUID(item['id'])).status = status; db.commit()
+            assert client.delete(path, headers=headers).status_code == 409
+        db.get(LectureSession, UUID(item['id'])).status = 'preparing'
+        doc = MaterialDocument(session_id=UUID(item['id']), filename='pending.pdf', file_type='pdf', revision=1, original_ref='pending', sha256='0'*64, processing_status='processing')
+        db.add(doc); db.commit()
+        assert client.delete(path, headers=headers).json()['detail']['code'] == 'MATERIAL_PROCESSING'
+        doc.processing_status = 'failed'; db.commit()
+    with monkeypatch.context() as patch:
+        patch.setattr(store, 'delete_prefix', lambda *args: (_ for _ in ()).throw(RuntimeError('unavailable')))
+        assert client.delete(path, headers=headers).status_code == 503
+        assert client.get(path, headers=headers).status_code == 200
+    assert client.delete(path, headers=headers).status_code == 204
+
+
+def test_partial_object_deletion_is_reported_as_failure(materials, monkeypatch):
+    _, _, _, _, item, store = materials
+    prefix = f"sessions/{item['id']}/"; store.put(prefix+'sample', b'test', 'application/octet-stream')
+    with monkeypatch.context() as patch:
+        patch.setattr(store.client, 'delete_objects', lambda **kwargs: {'Errors': [{'Code': 'AccessDenied'}]})
+        with pytest.raises(RuntimeError, match='OBJECT_DELETE_FAILED'):
+            store.delete_prefix(prefix)

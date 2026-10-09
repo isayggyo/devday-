@@ -41,6 +41,19 @@ export async function captureFor(ownerId: string, sessionId: string): Promise<Ca
   return transaction('captures', 'readonly', store => store.get([ownerId, sessionId]));
 }
 
+export async function deleteSessionBackup(ownerId: string, sessionId: string): Promise<void> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['chunks', 'captures'], 'readwrite');
+    tx.objectStore('captures').delete([ownerId, sessionId]);
+    const chunks = tx.objectStore('chunks');
+    const request = chunks.index('scope').openKeyCursor(IDBKeyRange.only([ownerId, sessionId]));
+    request.onsuccess = () => { const cursor = request.result; if (cursor) { chunks.delete(cursor.primaryKey); cursor.continue(); } };
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = tx.onabort = () => { db.close(); reject(tx.error ?? new Error('로컬 음성 백업 삭제에 실패했습니다.')); };
+  });
+}
+
 export function chunkForm(chunk: AudioChunk): FormData {
   const form = new FormData();
   form.set('chunk_id', chunk.id); form.set('capture_id', chunk.captureId);

@@ -2,15 +2,16 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator, field_serializer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .auth import current_user
 from .db import database_session
-from .models import LectureSession
+from .models import LectureSession, MaterialDocument
 from .config import get_settings
+from .storage import ObjectStore, get_object_store
 
 TRANSITIONS = {
     "created": {"preparing", "failed"},
@@ -95,6 +96,23 @@ def list_sessions(user: str = Depends(current_user), db: Session = Depends(datab
 @router.get("/{session_id}", response_model=SessionView)
 def get_session(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session)):
     return owned_session(db, session_id, user)
+
+
+@router.delete('/{session_id}', status_code=204)
+def delete_session(session_id: UUID, user: str = Depends(current_user), db: Session = Depends(database_session), store: ObjectStore = Depends(get_object_store)):
+    item = owned_session(db, session_id, user, lock=True)
+    if item.status in {'recording', 'processing'}:
+        raise HTTPException(409, {'code': 'SESSION_BUSY', 'message': '녹음 또는 슬라이드 생성 작업을 마친 뒤 삭제해 주세요.'})
+    if db.scalar(select(MaterialDocument.id).where(MaterialDocument.session_id == session_id, MaterialDocument.processing_status == 'processing').limit(1)):
+        raise HTTPException(409, {'code': 'MATERIAL_PROCESSING', 'message': '강의자료 처리가 끝난 뒤 삭제해 주세요.'})
+    try:
+        store.delete_prefix(f'sessions/{item.id}/')
+    except Exception:
+        raise HTTPException(503, {'code': 'SESSION_DELETE_FAILED', 'message': '저장 파일 삭제를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.'}) from None
+    # Existing foreign keys cascade to materials, audio, transcripts, notes and Q&A.
+    db.delete(item)
+    db.commit()
+    return Response(status_code=204)
 
 
 class CourseLink(BaseModel):

@@ -44,7 +44,9 @@ class ObjectStore:
         for page in pages:
             keys = [{"Key": item["Key"]} for item in page.get("Contents", [])]
             if keys:
-                self.client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})
+                result = self.client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})
+                if result.get('Errors'):
+                    raise RuntimeError('OBJECT_DELETE_FAILED')
 
 
 @lru_cache
