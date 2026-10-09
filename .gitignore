@@ -1,0 +1,7 @@
+# Local Codex transcripts, collector state, and submission archives
+logs/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
