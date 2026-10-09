@@ -5,10 +5,12 @@ import { AudioController, microphoneMessage, type CaptureUpdate } from '../lib/a
 import type { LectureSession } from './session-manager';
 import { TranscriptionController, type TranscriptionUpdate } from '../lib/transcription';
 
-export function AudioRecorder({ session, onSession }: { session: LectureSession | null; onSession: (session: LectureSession) => void }) {
+export function AudioRecorder({ session, onSession, onCaptureActive, autoStart = false, stopSignal = 0, finishSignal = 0, onCaptureUpdate, onNotice }: { onNotice?: (message:string) => void; stopSignal?: number; finishSignal?: number; onCaptureUpdate?: (value: CaptureUpdate) => void; autoStart?: boolean; onCaptureActive?: (active: boolean) => void; session: LectureSession | null; onSession: (session: LectureSession) => void }) {
   const controller = useRef<AudioController | null>(null);
   const transcription = useRef<TranscriptionController | null>(null);
   const enabled = useRef(true);
+  const autoStarted=useRef(false);
+  const handledFinish=useRef(finishSignal);
   const [transcribe, setTranscribe] = useState(true);
   const [captions, setCaptions] = useState<TranscriptionUpdate>({ status: 'idle', message: '', partial: '', segments: [] });
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -51,6 +53,8 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
 
   useEffect(() => { if (controller.current && session) controller.current.session = session; }, [session]);
 
+  useEffect(()=>{if(autoStart&&session&&controller.current&&!autoStarted.current){autoStarted.current=true;void controller.current.start('').catch(error=>setNotice(microphoneMessage(error)));}},[autoStart,session?.id]);
+
   async function selectDevices() {
     setNotice('');
     let preview: MediaStream | null = null;
@@ -61,7 +65,11 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
     finally { preview?.getTracks().forEach(track => track.stop()); }
   }
 
+  useEffect(()=>{if(notice)onNotice?.(notice);},[notice,onNotice]);
+  useEffect(()=>{onCaptureUpdate?.(capture);},[capture,onCaptureUpdate]);
+  useEffect(()=>{if(stopSignal)void controller.current?.stop().catch(error=>setNotice(microphoneMessage(error)));},[stopSignal]);
   const active = ['recording', 'requesting', 'stopping'].includes(capture.state);
+  useEffect(() => { onCaptureActive?.(active); }, [active, onCaptureActive]);
   async function endLecture() {
     if (!session) return;
     setEnding(true); setNotice('');
@@ -80,6 +88,11 @@ export function AudioRecorder({ session, onSession }: { session: LectureSession 
     } catch (failure) { setNotice(failure instanceof Error ? failure.message : '강의를 종료하지 못했습니다.'); }
     finally { setEnding(false); }
   }
+  useEffect(() => {
+    if (handledFinish.current !== finishSignal) { handledFinish.current = finishSignal; if (finishSignal) void endLecture(); }
+    // A new signal requests the same finish action as the settings button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finishSignal]);
   return <><section aria-label="녹음">
     <h2>녹음</h2>
     <button disabled={!session || active} onClick={() => void selectDevices()}>마이크 권한 확인·장치 찾기</button>
