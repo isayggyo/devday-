@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     stt_model: str = "gpt-live-transcribe"
     stt_delay: str = "low"
     stt_commit_max_ms: int = 12000
+    generation_model: str = "gpt-6-luna"
+    note_min_segments: int = 2
+    note_interval_seconds: int = 20
+    context_window_seconds: int = 180
 
     @model_validator(mode="after")
     def production_auth(self):

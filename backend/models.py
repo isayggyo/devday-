@@ -106,3 +106,19 @@ class TranscriptSegment(Base):
     text: Mapped[str] = mapped_column()
     revision: Mapped[int] = mapped_column(default=1)
     committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LiveNote(Base):
+    __tablename__ = "live_notes"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("lecture_sessions.id", ondelete="CASCADE"), index=True)
+    start_ms: Mapped[int] = mapped_column(Integer, default=0)
+    end_ms: Mapped[int] = mapped_column(Integer, default=0)
+    summary: Mapped[str] = mapped_column(default="")
+    transcript_segment_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    source_refs: Mapped[list] = mapped_column(JSONB, default=list)
+    revision: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(String(20), default="generating")
+    last_sequence: Mapped[int] = mapped_column(Integer, default=-1)
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

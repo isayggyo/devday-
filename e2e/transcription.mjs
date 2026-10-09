@@ -6,6 +6,7 @@ const options = parseOptions([]); options.chrome = discoverChrome(options.chrome
 const directory = path.join(ROOT, 'artifacts/phase1/step5-' + Date.now()), journal = new Journal(directory), owned = [];
 const headers = { 'X-Dev-User-Id': 'real-ai-' + randomUUID() };
 let browser, page, sessionId, result;
+let notes;
 try {
   await services(options, journal, owned);
   const created = await fetch(options.backendUrl + '/api/e2e/sessions', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: randomUUID() }) });
@@ -24,6 +25,13 @@ try {
   await page.waitForSelector('[data-testid="transcription-status"][data-status="connected"]', { timeout: 30000 });
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="transcript-item"]').length >= 2, { timeout: 45000 });
   check((await page.evaluate(() => window.__e2eMedia.snapshot())).recorderStates.includes('recording'), 'STT reconnection stopped original recording');
+  if (process.argv.includes('--notes')) {
+    await page.waitForSelector('[data-testid="live-note"][data-status="ready"]', { timeout: 60000 });
+    notes = await fetch(options.backendUrl + '/sessions/' + sessionId + '/notes', { headers }).then(response => response.json());
+    check(notes.some(note => note.status === 'ready' && note.summary.length > 0 && note.sourceRefs.length > 0), 'Real Responses API did not produce a persisted grounded note');
+    const transcripts = await fetch(options.backendUrl + '/sessions/' + sessionId + '/transcript-segments', { headers }).then(response => response.json());
+    for (const note of notes.filter(note => note.status === 'ready')) for (const ref of note.sourceRefs) check(transcripts.some(segment => segment.id === ref.sourceId && segment.text.includes(ref.excerpt)), 'Live note citation is not grounded in its actual transcript');
+  }
   await page.click('[data-testid="recording-stop"]');
   await page.waitForSelector('[data-testid="recording-state"][data-state="stopped"]', { timeout: 35000 });
   await page.waitForFunction(() => document.querySelector('[data-testid="audio-backup"]')?.dataset.pending === '0');
@@ -32,7 +40,7 @@ try {
   check(segments.every((segment, index) => segment.committedAt && segment.revision === 1 && segment.endMs >= segment.startMs && (index === 0 || segment.sequence > segments[index - 1].sequence)), 'Committed transcript order/timestamps are invalid');
   check(journal.errors.length === 0, 'Unexpected browser/API diagnostics');
   await page.screenshot({ path: path.join(directory, 'real-transcription.png'), fullPage: true });
-  result = { status: 'PASS', realAI: true, sessionId, segments, reconnectKeptRecording: true };
+  result = { status: 'PASS', realAI: true, sessionId, segments, notes, reconnectKeptRecording: true };
 } catch (error) {
   result = { status: 'FAIL', realAI: true, message: error.message }; console.error(error.message);
   if (page && !page.isClosed()) await page.screenshot({ path: path.join(directory, 'failure.png') }).catch(() => {});

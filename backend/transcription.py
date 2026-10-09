@@ -125,6 +125,8 @@ class TranscriptAssembler:
             segment = TranscriptSegment(id=turn.id, session_id=self.session_id, sequence=turn.sequence, start_ms=turn.start_ms, end_ms=turn.end_ms, text=text, revision=1)
             db.add(segment); turn.status = "committed"; db.commit(); db.refresh(segment)
             self.partials.pop(item, None)
+            from .notes import schedule_notes
+            schedule_notes(self.session_id, self.user)
             return [{"type": "transcript.final", "itemId": item, "segment": segment_view(segment)}]
 
     def pending(self):
